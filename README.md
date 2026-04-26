@@ -6,7 +6,7 @@ A full-stack system for managing an electronic shop including products, orders, 
 ## 🛠 Tech Stack
 - Frontend: React
 - Backend: Node.js / Express
-- Database: (add yours)
+- Database: mongoDB
 
 ## 📦 Installation
 
