@@ -3,12 +3,27 @@
 ## 🚀 Overview
 A full-stack system for managing an electronic shop including products, orders, and users.
 
+---
+
+## 🖼️ Preview
+
+### Dashboard / UI Preview
+![App Preview](frontend/src/assets/ppp.png)
+
+### Product Preview
+![Product Preview](frontend/src/assets/sss.png)
+
+---
+
 ## 🛠 Tech Stack
-- Frontend: React
-- Backend: Node.js / Express
-- Database: mongoDB
+- Frontend: React  
+- Backend: Node.js / Express  
+- Database: MongoDB  
+
+---
 
 ## 📦 Installation
 
 ```bash
 npm install
+npm start
