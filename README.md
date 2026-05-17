@@ -8,10 +8,10 @@ A full-stack system for managing an electronic shop including products, orders, 
 ## 🖼️ Preview
 
 ### Dashboard / UI Preview
-![App Preview](frontend/src/assets/ppp.png)
+![App Preview](frontend/src/assets/sss.png)
 
 ### Product Preview
-![Product Preview](frontend/src/assets/sss.png)
+![Product Preview](frontend/src/assets/ppp.png)
 
 ---
 
