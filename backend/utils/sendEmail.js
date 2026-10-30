@@ -1,13 +1,12 @@
 const nodemailer = require("nodemailer");
 
 // ✅ 1. CREATE THE TRANSPORTER
-// We use a try-catch block so the server NEVER crashes if SMTP is misconfigured
 let transporter;
 try {
   transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_SECURE === "true", // true for 465, false for 587
+    secure: process.env.SMTP_SECURE === "true",
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
@@ -18,7 +17,7 @@ try {
   console.error("❌ Failed to initialize Nodemailer:", error.message);
 }
 
-// ✅ 2. MULTILINGUAL TEMPLATES (Fixed typos and syntax)
+// ✅ 2. MULTILINGUAL TEMPLATES (Typos fixed & optimized)
 const emailTranslations = {
   am: {
     orderSubject: "✅ ትዕዛዝዎ ተረጋግጧል! - E-Shop Ethiopia",
@@ -66,7 +65,7 @@ const emailTranslations = {
   },
 };
 
-// ✅ 3. THE MAIN EMAIL FUNCTION
+// ✅ 3. ORDER CONFIRMATION FUNCTION
 const sendOrderConfirmation = async (userEmail, order, userLang = "en") => {
   if (!transporter) {
     console.warn(
@@ -81,10 +80,12 @@ const sendOrderConfirmation = async (userEmail, order, userLang = "en") => {
 
   try {
     const t = emailTranslations[userLang] || emailTranslations.en;
-    const orderId = order._id.toString().slice(-6).toUpperCase();
-    const userName = order.user?.name || "Valued Customer";
+    const orderId = order?._id
+      ? order._id.toString().slice(-6).toUpperCase()
+      : "N/A";
+    const userName = order?.user?.name || "Valued Customer";
 
-    let addressObj = order.shippingAddress || order.address;
+    let addressObj = order?.shippingAddress || order?.address;
     if (typeof addressObj === "string") {
       try {
         addressObj = JSON.parse(addressObj);
@@ -93,7 +94,7 @@ const sendOrderConfirmation = async (userEmail, order, userLang = "en") => {
       }
     }
 
-    const itemsList = (order.products || [])
+    const itemsList = (order?.products || [])
       .map((item) => {
         const productName = item.product?.name || item.name || "Product";
         const productImage =
@@ -101,7 +102,6 @@ const sendOrderConfirmation = async (userEmail, order, userLang = "en") => {
         const price = item.product?.price || item.price || 0;
         const qty = item.quantity || 1;
 
-        // ✅ FIXED: Added missing multiplication operator (*) for price * qty
         return `
         <tr>
           <td style="padding: 12px 10px; border-bottom: 1px solid #e2e8f0;">
@@ -143,13 +143,13 @@ const sendOrderConfirmation = async (userEmail, order, userLang = "en") => {
             <div class="order-details">
               <p><strong>${t.orderDetailsTitle}:</strong></p>
               <p>📦 <strong>Order ID:</strong> #${orderId}</p>
-              <p>📅 <strong>Date:</strong> ${new Date(order.createdAt).toLocaleDateString()}</p>
-              <p>💳 <strong>Payment:</strong> <span style="color: #10b981; font-weight: 600; text-transform: uppercase;">${order.paymentStatus || order.status}</span></p>
+              <p>📅 <strong>Date:</strong> ${order?.createdAt ? new Date(order.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}</p>
+              <p>💳 <strong>Payment:</strong> <span style="color: #10b981; font-weight: 600; text-transform: uppercase;">${order?.paymentStatus || order?.status || "Pending"}</span></p>
               <p>📍 <strong>Shipping:</strong> ${addressObj?.city || "N/A"}, ${addressObj?.subcity || "N/A"}</p>
             </div>
             <h3 style="margin-bottom: 10px; color: #1e293b;">${t.orderSummaryTitle}</h3>
             <table><thead><tr><th>${t.tableHeaders.product}</th><th style="text-align: center;">${t.tableHeaders.qty}</th><th style="text-align: right;">${t.tableHeaders.price}</th></tr></thead><tbody>${itemsList}</tbody></table>
-            <div class="total">${t.totalLabel} ${order.totalPrice.toFixed(2)} ETB</div>
+            <div class="total">${t.totalLabel} ${order?.totalPrice ? order.totalPrice.toFixed(2) : "0.00"} ETB</div>
             <div style="text-align: center; margin-top: 20px;"><a href="${process.env.FRONTEND_URL}/profile/orders" class="btn">${t.trackButton}</a></div>
           </div>
           <div class="footer"><p>© ${new Date().getFullYear()} E-Shop Ethiopia. All rights reserved.</p></div>
@@ -158,7 +158,6 @@ const sendOrderConfirmation = async (userEmail, order, userLang = "en") => {
       </html>
     `;
 
-    // ✅ 4. SEND THE EMAIL (Using verified Brevo Sender or email from env)
     const info = await transporter.sendMail({
       from:
         process.env.EMAIL_FROM || `"E-Shop Ethiopia" <selomon127@gmail.com>`,
@@ -174,4 +173,74 @@ const sendOrderConfirmation = async (userEmail, order, userLang = "en") => {
   }
 };
 
-module.exports = { sendOrderConfirmation };
+// ✅ 4. LOW STOCK ALERT FUNCTION
+const sendLowStockAlert = async (productName, currentStock, adminEmail) => {
+  if (!transporter) {
+    console.warn(
+      "⚠️ [ALERT] Skipped: Nodemailer transporter is not configured.",
+    );
+    return;
+  }
+
+  console.log(
+    `🚨 [ALERT] Attempting to send low stock alert for: ${productName}`,
+  );
+
+  try {
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 20px; }
+          .container { max-width: 500px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 30px; border-top: 5px solid #ef4444; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+          .header { color: #ef4444; font-size: 24px; font-weight: 800; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+          .detail { background: #fef2f2; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #fecaca; }
+          .detail p { margin: 5px 0; font-size: 16px; }
+          .btn { display: inline-block; padding: 12px 24px; background: #ef4444; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; margin-top: 15px; text-align: center; }
+          .footer { margin-top: 30px; font-size: 13px; color: #64748b; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">🚨 Low Stock Alert!</div>
+          <p>Hello Admin,</p>
+          <p>This is an automated alert from <strong>E-Shop Ethiopia</strong>.</p>
+          <div class="detail">
+            <p style="margin: 0;"><strong>📦 Product:</strong> ${productName}</p>
+            <p style="margin: 5px 0 0 0;"><strong>📉 Current Stock:</strong> <span style="color: #ef4444; font-weight: 800; font-size: 18px;">${currentStock} units</span></p>
+          </div>
+          <p>Please restock this item as soon as possible to avoid losing sales and disappointing customers.</p>
+          <div style="text-align: center;">
+            <a href="${process.env.FRONTEND_URL}/admin/products" class="btn">Manage Products Now</a>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} E-Shop Ethiopia. Automated System.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const info = await transporter.sendMail({
+      from:
+        process.env.EMAIL_FROM || `"E-Shop Ethiopia" <selomon127@gmail.com>`,
+      to: adminEmail,
+      subject: `🚨 Low Stock Alert: ${productName} (${currentStock} left)`,
+      html: emailHtml,
+    });
+
+    console.log(
+      `✅ [ALERT] Low stock email sent successfully! ID: ${info.messageId}`,
+    );
+  } catch (error) {
+    console.error("❌ [ALERT] Failed to send low stock email:", error.message);
+  }
+};
+
+// ✅ 5. EXPORTS
+module.exports = {
+  sendOrderConfirmation,
+  sendLowStockAlert,
+};

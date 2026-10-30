@@ -1,13 +1,14 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import React, { useState, useEffect, useRef } from "react";
 import { NavLink, Link, useNavigate, useSearchParams, useLocation } from "react-router-dom";
-import { useTranslation } from "react-i18next"; // ✅ Imported ONCE
+import { useTranslation } from "react-i18next";
 import ThemeToggle from "./ThemeToggle";
 import LanguageSwitcher from "./LanguageSwitcher";
 
 function Navbar({ cartCount, user, handleLogout }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { t } = useTranslation(); // ✅ Initialize translation here
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -44,19 +45,16 @@ function Navbar({ cartCount, user, handleLogout }) {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSearchQuery(searchParams.get("search") || "");
   }, [searchParams]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMenuOpen(false);
     setProfileMenuOpen(false);
   }, [location.pathname, location.search]);
 
   useEffect(() => {
     if (prevCount.current !== cartCount) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBump(true);
       const timer = setTimeout(() => setBump(false), 450);
       prevCount.current = cartCount;
@@ -106,9 +104,13 @@ function Navbar({ cartCount, user, handleLogout }) {
       <style>{css}</style>
 
       <div className="nb-inner">
+        {/* ✅ UPDATED LOGO SECTION */}
         <Link to="/" className="nb-logo">
-          <span className="nb-logo-icon">⚡</span>
-          <span>E-Shop<span className="nb-logo-accent"> Ethiopia</span></span>
+          <img 
+            src="/logo.png" 
+            alt="E-Shop Ethiopia Logo" 
+            className="nb-logo-img"
+          />
         </Link>
 
         {!mobile && SearchForm}
@@ -261,10 +263,12 @@ const css = `
 .nb-scrolled { box-shadow: 0 8px 30px rgba(0,0,0,.28); background: rgba(15,23,42,.97); }
 @keyframes nbDrop { from { transform: translateY(-100%); opacity: 0; } to { transform: none; opacity: 1; } }
 .nb-inner { max-width: 1400px; margin: 0 auto; padding: .8rem 1.5rem; display: flex; align-items: center; gap: 1.5rem; }
-.nb-logo { display: flex; align-items: center; gap: .55rem; text-decoration: none; color: #fff; font-weight: 800; font-size: 1.3rem; letter-spacing: -.01em; white-space: nowrap; }
-.nb-logo-icon { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(135deg, #6366f1, #ec4899); box-shadow: 0 6px 18px rgba(99,102,241,.45); transition: transform .4s cubic-bezier(.2,.8,.2,1); }
-.nb-logo:hover .nb-logo-icon { transform: rotate(-12deg) scale(1.1); }
-.nb-logo-accent { background: linear-gradient(90deg, #a5b4fc, #f0abfc); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* ✅ UPDATED LOGO CSS */
+.nb-logo { display: flex; align-items: center; text-decoration: none; color: #fff; white-space: nowrap; }
+.nb-logo-img { height: 75px; width: auto; object-fit: contain; transition: transform .4s cubic-bezier(.2,.8,.2,1); }
+.nb-logo:hover .nb-logo-img { transform: scale(1.05); }
+
 .nb-search { position: relative; display: flex; align-items: center; flex: 1; max-width: 460px; }
 .nb-search input { width: 100%; padding: .65rem 2.8rem .65rem 2.6rem; border-radius: 999px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.08); color: #fff; font-size: .92rem; outline: none; transition: background .25s, border-color .25s, box-shadow .25s; }
 .nb-search input::placeholder { color: rgba(255,255,255,.5); }

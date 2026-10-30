@@ -6,7 +6,11 @@ const User = require("../models/User");
 const auth = require("../middleware/auth");
 const axios = require("axios");
 
-const { sendOrderConfirmation } = require("../utils/sendEmail");
+// ✅ Import BOTH email functions
+const {
+  sendOrderConfirmation,
+  sendLowStockAlert,
+} = require("../utils/sendEmail");
 
 const adminAuth = (req, res, next) => {
   if (req.user && req.user.role === "admin") return next();
@@ -16,7 +20,6 @@ const adminAuth = (req, res, next) => {
 // ✅ 1. CREATE ORDER
 router.post("/", auth, async (req, res) => {
   try {
-    // Accept both 'products' (frontend update) and 'items' (legacy)
     const { shippingAddress, paymentMethod, products, items } = req.body;
     const orderItems = products || items;
     const userId = req.user ? req.user.id : req.userId;
@@ -50,8 +53,20 @@ router.post("/", auth, async (req, res) => {
         image: product.image,
       });
 
+      // Deduct stock immediately
       product.stock -= item.quantity;
       await product.save();
+
+      // ✅ NEW: Check for low stock and alert admin in the background
+      if (product.stock <= 5) {
+        sendLowStockAlert(
+          product.name,
+          product.stock,
+          process.env.ADMIN_EMAIL,
+        ).catch((err) => {
+          console.error("❌ Low stock alert email failed:", err);
+        });
+      }
     }
 
     const isCOD = paymentMethod === "cod";
@@ -110,24 +125,20 @@ router.post("/", auth, async (req, res) => {
       if (chapaResponse.data.status === "success") {
         savedOrder.chapaTxRef = txRef;
         await savedOrder.save();
-        return res
-          .status(201)
-          .json({
-            message: "Order created, redirecting to payment...",
-            order: savedOrder,
-            checkoutUrl: chapaResponse.data.data.checkout_url,
-          });
+        return res.status(201).json({
+          message: "Order created, redirecting to payment...",
+          order: savedOrder,
+          checkoutUrl: chapaResponse.data.data.checkout_url,
+        });
       }
     }
 
-    res
-      .status(201)
-      .json({
-        message: isCOD
-          ? "Order placed successfully! Pay on delivery."
-          : "Order created",
-        order: savedOrder,
-      });
+    res.status(201).json({
+      message: isCOD
+        ? "Order placed successfully! Pay on delivery."
+        : "Order created",
+      order: savedOrder,
+    });
   } catch (error) {
     console.error("❌ Create Order Error:", error);
     res.status(500).json({ message: "Server error", error: error.message });

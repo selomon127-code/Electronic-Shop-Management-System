@@ -19,7 +19,7 @@ const INITIAL_FORM = {
 
 function Signup() {
   const navigate = useNavigate();
-  const { t } = useTranslation(); // ✅ Initialize translation here
+  const { t } = useTranslation();
   const redirectTimer = useRef(null);
 
   const [formData, setFormData] = useState(INITIAL_FORM);
@@ -118,7 +118,12 @@ function Signup() {
     <div className="auth-page">
       <form className="auth-card" onSubmit={handleSubmit} noValidate>
         <div className="auth-header">
-          <div className="auth-logo" aria-hidden="true">📝</div>
+          {/* ✅ UPDATED LOGO SECTION */}
+          <img 
+            src="/logo.png" 
+            alt="E-Shop Ethiopia Logo" 
+            style={{ height: "64px", width: "auto", objectFit: "contain", marginBottom: "1rem" }} 
+          />
           <h1 className="auth-title">{t("auth.create_account_title") || "Create your account"}</h1>
           <p className="auth-subtitle">{t("auth.join_eshop") || "Join E-Shop Ethiopia today"}</p>
         </div>

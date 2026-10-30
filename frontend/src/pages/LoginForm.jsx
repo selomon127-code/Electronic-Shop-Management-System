@@ -17,7 +17,7 @@ const GOOGLE_ERRORS = {
 function LoginForm({ onLogin }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { t } = useTranslation(); // ✅ Initialize translation
+  const { t } = useTranslation();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -68,10 +68,16 @@ function LoginForm({ onLogin }) {
     <div className="auth-page">
       <form className="auth-card" onSubmit={handleSubmit} noValidate>
         <div className="auth-header">
-          <div className="auth-logo" aria-hidden="true">🔐</div>
+          {/* ✅ UPDATED LOGO SECTION */}
+          <img 
+            src="/logo.png" 
+            alt="E-Shop Ethiopia Logo" 
+            style={{ height: "64px", width: "auto", objectFit: "contain", marginBottom: "1rem" }} 
+          />
           <h1 className="auth-title">{t("auth.welcome_back") || "Welcome back"}</h1>
           <p className="auth-subtitle">{t("auth.sign_in_subtitle") || "Sign in to your E-Shop Ethiopia account"}</p>
         </div>
+        
         {googleError && <div className="auth-alert auth-alert--error">{googleError}</div>}
         {location.state?.message && <div className="auth-alert auth-alert--success">{location.state.message}</div>}
         {errors.general && <div className="auth-alert auth-alert--error">{errors.general}</div>}
@@ -111,4 +117,5 @@ function LoginForm({ onLogin }) {
     </div>
   );
 }
+
 export default LoginForm;
