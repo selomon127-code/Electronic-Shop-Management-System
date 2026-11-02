@@ -16,6 +16,9 @@ function ThemeToggle() {
   };
 
   const [theme, setTheme] = useState(getInitialTheme);
+  const [hasManualPreference, setHasManualPreference] = useState(
+    () => localStorage.getItem("theme") !== null
+  );
 
   // Apply theme to document
   useEffect(() => {
@@ -27,12 +30,15 @@ function ThemeToggle() {
       root.removeAttribute("data-theme");
     }
     
-    // Save to localStorage
-    localStorage.setItem("theme", theme);
-  }, [theme]);
+    if (hasManualPreference) {
+      localStorage.setItem("theme", theme);
+    }
+    root.style.colorScheme = theme;
+  }, [theme, hasManualPreference]);
 
   // Toggle theme
   const toggleTheme = () => {
+    setHasManualPreference(true);
     setTheme(prev => prev === "light" ? "dark" : "light");
   };
 
@@ -42,14 +48,14 @@ function ThemeToggle() {
     
     const handleChange = (e) => {
       // Only auto-switch if user hasn't manually set a preference
-      if (!localStorage.getItem("theme")) {
+      if (!hasManualPreference) {
         setTheme(e.matches ? "dark" : "light");
       }
     };
     
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
-  }, []);
+    mediaQuery.addEventListener?.("change", handleChange);
+    return () => mediaQuery.removeEventListener?.("change", handleChange);
+  }, [hasManualPreference]);
 
   return (
     <button

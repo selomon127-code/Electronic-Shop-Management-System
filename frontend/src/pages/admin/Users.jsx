@@ -1,5 +1,6 @@
 // ecommerce-app/src/pages/admin/Users.jsx
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { adminApi } from "../../api/adminApi";
 import {
   AdminStyles, Icon, Kpi, Modal, PageHeader, TableSkeleton, EmptyState, ErrorBanner,
@@ -20,6 +21,7 @@ function UserAvatar({ user, large }) {
 }
 
 function Users() {
+  const { t } = useTranslation();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -51,11 +53,11 @@ function Users() {
       setUsers(data.users || []);
     } catch (err) {
       if (id !== requestId.current) return;
-      setError(err.response?.data?.message || "Failed to load users");
+      setError(err.response?.data?.message || t("admin.failed_load_users"));
     } finally {
       if (id === requestId.current) setLoading(false);
     }
-  }, [roleFilter, debouncedSearch]);
+  }, [roleFilter, debouncedSearch, t]);
 
   useEffect(() => {
     fetchUsers();
@@ -63,26 +65,26 @@ function Users() {
 
   const handleRoleChange = async (user, newRole) => {
     const ok = await confirm({
-      title: "Change user role?",
-      message: `${user.name} will become ${newRole === "admin" ? "an admin with access to the admin panel" : "a regular user"}.`,
-      confirmLabel: "Change role",
+      title: t("admin.change_user_role_title"),
+      message: t("admin.change_user_role_message", { name: user.name, role: t(newRole === "admin" ? "admin.admin_access_role" : "admin.regular_user") }),
+      confirmLabel: t("admin.change_role"),
     });
     if (!ok) return;
 
     try {
       await adminApi.updateUserRole(user._id, newRole);
       setUsers((prev) => prev.map((u) => (u._id === user._id ? { ...u, role: newRole } : u)));
-      toast("success", `${user.name} is now ${newRole}`);
+      toast("success", t("admin.user_role_changed", { name: user.name, role: t(newRole === "admin" ? "admin.admin_role" : "admin.user_role") }));
     } catch (err) {
-      toast("error", err.response?.data?.message || err.message || "Failed to change role");
+      toast("error", err.response?.data?.message || err.message || t("admin.failed_change_role"));
     }
   };
 
   const handleDelete = async (user) => {
     const ok = await confirm({
-      title: "Delete user?",
-      message: `"${user.name}" will be permanently deleted. This cannot be undone.`,
-      confirmLabel: "Delete user",
+      title: t("admin.delete_user_title"),
+      message: t("admin.delete_user_message", { name: user.name }),
+      confirmLabel: t("admin.delete_user"),
       danger: true,
     });
     if (!ok) return;
@@ -90,9 +92,9 @@ function Users() {
     try {
       await adminApi.deleteUser(user._id);
       setUsers((prev) => prev.filter((u) => u._id !== user._id));
-      toast("success", `${user.name} deleted`);
+      toast("success", t("admin.user_deleted", { name: user.name }));
     } catch (err) {
-      toast("error", err.response?.data?.message || err.message || "Failed to delete user");
+      toast("error", err.response?.data?.message || err.message || t("admin.failed_delete_user"));
     }
   };
 
@@ -110,9 +112,9 @@ function Users() {
       setUsers((prev) => [data.user, ...prev]);
       setShowAddModal(false);
       setNewUser(EMPTY_USER);
-      toast("success", "User created successfully");
+      toast("success", t("admin.user_created"));
     } catch (err) {
-      setAddError(err.response?.data?.message || "Failed to create user");
+      setAddError(err.response?.data?.message || t("admin.failed_create_user"));
     } finally {
       setCreating(false);
     }
@@ -124,7 +126,7 @@ function Users() {
       const { data } = await adminApi.getUser(userId);
       setUserDetails(data);
     } catch (err) {
-      toast("error", err.response?.data?.message || "Failed to load user details");
+      toast("error", err.response?.data?.message || t("admin.failed_load_user_details"));
     } finally {
       setLoadingDetailsId(null);
     }
@@ -137,20 +139,20 @@ function Users() {
     <div className="ad">
       <AdminStyles />
 
-      <PageHeader title="Users" subtitle="Manage registered users and their roles">
+      <PageHeader title={t("admin.users")} subtitle={t("admin.manage_users_subtitle")}>
         <button className="ad-btn" onClick={fetchUsers} disabled={loading}>
           <span className={loading ? "ad-spin" : ""}><Icon name="refresh" size={16} /></span>
-          Refresh
+          {t("admin.refresh")}
         </button>
         <button className="ad-btn primary" onClick={() => setShowAddModal(true)}>
-          <Icon name="plus" size={16} /> Add user
+          <Icon name="plus" size={16} /> {t("admin.add_user")}
         </button>
       </PageHeader>
 
       <div className="ad-kpis">
-        <Kpi label="Users in view" value={num(users.length)} icon="users" color="#4f46e5" bg="#e0e7ff" />
-        <Kpi label="Regular users" value={num(regular)} icon="users" color="#2563eb" bg="#dbeafe" />
-        <Kpi label="Admins" value={num(admins)} icon="shield" color="#d97706" bg="#fef3c7" />
+        <Kpi label={t("admin.users_in_view")} value={num(users.length)} icon="users" color="#4f46e5" bg="#e0e7ff" />
+        <Kpi label={t("admin.regular_users")} value={num(regular)} icon="users" color="#2563eb" bg="#dbeafe" />
+        <Kpi label={t("admin.admins")} value={num(admins)} icon="shield" color="#d97706" bg="#fef3c7" />
       </div>
 
       {/* Filters */}
@@ -160,21 +162,21 @@ function Users() {
           <input
             className="ad-input"
             type="text"
-            placeholder="Search by name or email…"
+            placeholder={t("admin.search_users")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            aria-label="Search users"
+            aria-label={t("admin.search_users")}
           />
         </div>
         <select
           className="ad-input auto"
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
-          aria-label="Filter by role"
+          aria-label={t("admin.filter_role")}
         >
-          <option value="">All roles</option>
-          <option value="user">Users only</option>
-          <option value="admin">Admins only</option>
+          <option value="">{t("admin.all_roles")}</option>
+          <option value="user">{t("admin.users_only")}</option>
+          <option value="admin">{t("admin.admins_only")}</option>
         </select>
       </div>
 
@@ -185,18 +187,18 @@ function Users() {
         {loading && users.length === 0 ? (
           <TableSkeleton />
         ) : users.length === 0 ? (
-          <EmptyState icon="users" title="No users found" text={search || roleFilter ? "Try adjusting your search or filter." : "Registered users will appear here."} />
+          <EmptyState icon="users" title={t("admin.no_users_found")} text={search || roleFilter ? t("admin.adjust_user_search") : t("admin.users_empty")} />
         ) : (
           <div className="ad-table-wrap" style={{ opacity: loading ? 0.6 : 1, transition: "opacity .15s" }}>
             <table className="ad-table">
               <thead>
                 <tr>
-                  <th>User</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Auth</th>
-                  <th>Joined</th>
-                  <th style={{ textAlign: "right" }}>Actions</th>
+                  <th>{t("admin.user")}</th>
+                  <th>{t("admin.email")}</th>
+                  <th>{t("admin.role")}</th>
+                  <th>{t("admin.auth")}</th>
+                  <th>{t("admin.joined")}</th>
+                  <th style={{ textAlign: "right" }}>{t("admin.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -220,11 +222,11 @@ function Users() {
                           className="ad-select-pill"
                           value={user.role}
                           onChange={(e) => handleRoleChange(user, e.target.value)}
-                          aria-label={`Role for ${user.name}`}
+                          aria-label={t("admin.role_for_user", { name: user.name })}
                           style={{ background: rs.bg, color: rs.fg }}
                         >
-                          <option value="user">User</option>
-                          <option value="admin">Admin</option>
+                          <option value="user">{t("admin.user_role")}</option>
+                          <option value="admin">{t("admin.admin_role")}</option>
                         </select>
                       </td>
                       <td>
@@ -240,8 +242,8 @@ function Users() {
                         <div className="ad-row-actions" style={{ justifyContent: "flex-end" }}>
                           <button
                             className="ad-btn icon view"
-                            title="View details"
-                            aria-label="View details"
+                            title={t("admin.view_details")}
+                            aria-label={t("admin.view_details")}
                             disabled={loadingDetailsId === user._id}
                             onClick={() => viewUserDetails(user._id)}
                           >
@@ -251,7 +253,7 @@ function Users() {
                               <Icon name="eye" size={16} />
                             )}
                           </button>
-                          <button className="ad-btn icon del" title="Delete user" aria-label="Delete user" onClick={() => handleDelete(user)}>
+                          <button className="ad-btn icon del" title={t("admin.delete_user")} aria-label={t("admin.delete_user")} onClick={() => handleDelete(user)}>
                             <Icon name="trash" size={16} />
                           </button>
                         </div>
@@ -268,14 +270,14 @@ function Users() {
       {/* Add user modal */}
       {showAddModal && (
         <Modal
-          title="Add new user"
+          title={t("admin.add_new_user")}
           width={500}
           onClose={closeAddModal}
           footer={
             <>
-              <button type="button" className="ad-btn" onClick={closeAddModal}>Cancel</button>
+              <button type="button" className="ad-btn" onClick={closeAddModal}>{t("admin.cancel")}</button>
               <button type="submit" form="add-user-form" className="ad-btn primary" disabled={creating}>
-                {creating ? "Creating…" : "Create user"}
+                {creating ? t("admin.creating") : t("admin.create_user")}
               </button>
             </>
           }
@@ -284,33 +286,33 @@ function Users() {
 
           <form id="add-user-form" onSubmit={handleAddUser}>
             <div className="ad-field">
-              <label className="ad-label" htmlFor="nu-name">Full name *</label>
-              <input id="nu-name" className="ad-input" type="text" required placeholder="John Doe"
+              <label className="ad-label" htmlFor="nu-name">{t("admin.full_name")} *</label>
+              <input id="nu-name" className="ad-input" type="text" required placeholder={t("admin.name_example")}
                 value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} />
             </div>
             <div className="ad-field">
-              <label className="ad-label" htmlFor="nu-email">Email *</label>
-              <input id="nu-email" className="ad-input" type="email" required placeholder="user@example.com"
+              <label className="ad-label" htmlFor="nu-email">{t("admin.email")} *</label>
+              <input id="nu-email" className="ad-input" type="email" required placeholder={t("admin.email_example")}
                 value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} />
             </div>
             <div className="ad-grid2">
               <div className="ad-field">
-                <label className="ad-label" htmlFor="nu-pass">Password * <small>(min 6)</small></label>
+                <label className="ad-label" htmlFor="nu-pass">{t("admin.password")} * <small>({t("admin.min_characters", { count: 6 })})</small></label>
                 <input id="nu-pass" className="ad-input" type="password" required minLength={6} placeholder="••••••••"
                   value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
               </div>
               <div className="ad-field">
-                <label className="ad-label" htmlFor="nu-phone">Phone</label>
+                <label className="ad-label" htmlFor="nu-phone">{t("admin.phone")}</label>
                 <input id="nu-phone" className="ad-input" type="tel" placeholder="+251911234567"
                   value={newUser.phone} onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })} />
               </div>
             </div>
             <div className="ad-field" style={{ marginBottom: 0 }}>
-              <label className="ad-label" htmlFor="nu-role">Role *</label>
+              <label className="ad-label" htmlFor="nu-role">{t("admin.role")} *</label>
               <select id="nu-role" className="ad-input" value={newUser.role}
                 onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}>
-                <option value="user">User (regular customer)</option>
-                <option value="admin">Admin (can access the admin panel)</option>
+                <option value="user">{t("admin.user_regular_customer")}</option>
+                <option value="admin">{t("admin.admin_panel_access")}</option>
               </select>
             </div>
           </form>
@@ -320,9 +322,9 @@ function Users() {
       {/* User details modal */}
       {userDetails && (
         <Modal
-          title="User details"
+          title={t("admin.user_details")}
           onClose={() => setUserDetails(null)}
-          footer={<button className="ad-btn primary" onClick={() => setUserDetails(null)}>Close</button>}
+          footer={<button className="ad-btn primary" onClick={() => setUserDetails(null)}>{t("admin.close")}</button>}
         >
           <div className="ad-user" style={{ gap: "1rem" }}>
             <UserAvatar user={userDetails.user} large />
@@ -343,14 +345,14 @@ function Users() {
           </div>
 
           <div className="ad-mini-grid">
-            <div className="ad-mini"><small>Orders</small><b>{num(userDetails.stats?.totalOrders)}</b></div>
-            <div className="ad-mini"><small>Total spent</small><b style={{ color: "#059669" }}>{money(userDetails.stats?.totalSpent)}</b></div>
-            <div className="ad-mini"><small>Member since</small><b style={{ fontSize: ".95rem" }}>{formatDate(userDetails.user.createdAt)}</b></div>
+            <div className="ad-mini"><small>{t("admin.orders")}</small><b>{num(userDetails.stats?.totalOrders)}</b></div>
+            <div className="ad-mini"><small>{t("admin.total_spent")}</small><b style={{ color: "#059669" }}>{money(userDetails.stats?.totalSpent)}</b></div>
+            <div className="ad-mini"><small>{t("admin.member_since")}</small><b style={{ fontSize: ".95rem" }}>{formatDate(userDetails.user.createdAt)}</b></div>
           </div>
 
           <dl className="ad-kv" style={{ marginBottom: 0 }}>
-            <dt>Phone</dt><dd>{userDetails.user.phone || "—"}</dd>
-            <dt>Sign-in</dt><dd style={{ textTransform: "capitalize" }}>{userDetails.user.authProvider || "local"}</dd>
+            <dt>{t("admin.phone")}</dt><dd>{userDetails.user.phone || "—"}</dd>
+            <dt>{t("admin.sign_in")}</dt><dd style={{ textTransform: "capitalize" }}>{userDetails.user.authProvider || "local"}</dd>
           </dl>
         </Modal>
       )}

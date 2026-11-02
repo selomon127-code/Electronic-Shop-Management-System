@@ -51,6 +51,16 @@
   --badge-in-stock: #2ecc71;
   --badge-low-stock: #f39c12;
   --badge-out-of-stock: #e74c3c;
+  --bg-main: #0f172a;
+  --bg-card: #1e293b;
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --border: #334155;
+  --primary: #818cf8;
+  --primary-hover: #6366f1;
+  --success: #34d399;
+  --danger: #f87171;
+  color-scheme: dark;
 }
 
 /* ===== Theme Toggle Button Styles ===== */

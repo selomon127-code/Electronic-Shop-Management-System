@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
+const axios = require("axios");
 const {
   sendWelcomeEmail,
   sendPasswordResetEmail,
@@ -215,13 +216,94 @@ router.post("/reset-password/:token", async (req, res) => {
 });
 
 // ✅ 5. GOOGLE OAUTH
-router.get(
-  "/google",
-  passport.authenticate("google", {
-    scope: ["profile", "email"],
-    prompt: "select_account",
-  }),
-);
+router.post("/google/verify-captcha", async (req, res) => {
+  const secret = process.env.RECAPTCHA_SECRET_KEY;
+  const captchaToken = req.body?.token;
+
+  if (!secret) {
+    return res.status(503).json({
+      code: "recaptcha_secret_missing",
+      message: "Google sign-in verification is not configured",
+    });
+  }
+  if (typeof captchaToken !== "string" || !captchaToken) {
+    return res.status(400).json({
+      code: "recaptcha_token_invalid",
+      message: "Complete the reCAPTCHA verification",
+    });
+  }
+
+  try {
+    const verification = await axios.post(
+      "https://www.google.com/recaptcha/api/siteverify",
+      new URLSearchParams({ secret, response: captchaToken }),
+      { timeout: 10000, headers: { "Content-Type": "application/x-www-form-urlencoded" } },
+    );
+
+    if (verification.data?.success !== true) {
+      const errorCodes = Array.isArray(verification.data?.["error-codes"])
+        ? verification.data["error-codes"].filter((code) => typeof code === "string")
+        : [];
+      console.warn("Google reCAPTCHA rejected verification:", errorCodes);
+
+      if (errorCodes.includes("missing-input-secret") || errorCodes.includes("invalid-input-secret")) {
+        return res.status(503).json({
+          code: "recaptcha_secret_invalid",
+          message: "The reCAPTCHA secret key is missing or invalid",
+        });
+      }
+      if (errorCodes.includes("timeout-or-duplicate")) {
+        return res.status(400).json({
+          code: "recaptcha_token_expired",
+          message: "The reCAPTCHA response expired or was already used",
+        });
+      }
+      if (errorCodes.includes("missing-input-response") || errorCodes.includes("invalid-input-response")) {
+        return res.status(400).json({
+          code: "recaptcha_token_invalid",
+          message: "Google rejected the reCAPTCHA response",
+        });
+      }
+      return res.status(400).json({
+        code: "recaptcha_verify_failed",
+        message: "reCAPTCHA verification failed",
+      });
+    }
+
+    req.session.googleCaptchaVerified = true;
+    req.session.save((error) => {
+      if (error) {
+        console.error("Google CAPTCHA session save failed:", error);
+        return res.status(500).json({ message: "Could not start Google sign-in" });
+      }
+      return res.json({ verified: true });
+    });
+  } catch (error) {
+    console.error("Google reCAPTCHA verification request failed:", error.message);
+    return res.status(502).json({
+      code: "recaptcha_provider_error",
+      message: "Could not verify reCAPTCHA with Google",
+    });
+  }
+});
+
+router.get("/google", (req, res, next) => {
+  if (req.session?.googleCaptchaVerified !== true) {
+    return res.redirect(`${process.env.FRONTEND_URL}/login?error=recaptcha_required`);
+  }
+
+  req.session.googleCaptchaVerified = false;
+  req.session.save((error) => {
+    if (error) {
+      console.error("Google sign-in session save failed:", error);
+      return res.redirect(`${process.env.FRONTEND_URL}/login?error=server_error`);
+    }
+    return passport.authenticate("google", {
+      scope: ["profile", "email"],
+      prompt: "select_account",
+    })(req, res, next);
+  });
+});
 
 router.get(
   "/google/callback",

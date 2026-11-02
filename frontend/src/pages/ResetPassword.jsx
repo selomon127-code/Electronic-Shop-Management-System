@@ -1,10 +1,12 @@
 // ecommerce-app/src/pages/ResetPassword.jsx
 import React, { useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import API from "../api/axios";
 
 function ResetPassword() {
   const { token } = useParams();
+  const { t } = useTranslation();
   
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -18,10 +20,10 @@ function ResetPassword() {
     setMessage("");
 
     if (password !== confirmPassword) {
-      return setError("Passwords do not match.");
+      return setError(t("auth.password_mismatch"));
     }
     if (password.length < 6) {
-      return setError("Password must be at least 6 characters long.");
+      return setError(t("password_reset.password_min"));
     }
 
     setLoading(true);
@@ -34,7 +36,7 @@ function ResetPassword() {
       localStorage.removeItem("user");
       
       // ✅ 2. Show success message
-      setMessage(data.message || "Password updated successfully!");
+      setMessage(data.message || t("password_reset.updated_title"));
       
       // ✅ 3. FORCE a hard browser redirect to Login (bypasses React Router cache)
       setTimeout(() => {
@@ -43,7 +45,7 @@ function ResetPassword() {
       
     } catch (err) {
       console.error("❌ Reset error:", err);
-      setError(err.response?.data?.message || "Failed to reset password. Link may be expired.");
+      setError(err.response?.data?.message || t("password_reset.reset_failed"));
     } finally {
       setLoading(false);
     }
@@ -53,18 +55,18 @@ function ResetPassword() {
     return (
       <div style={{ maxWidth: "450px", margin: "4rem auto", padding: "2rem", background: "white", borderRadius: "16px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", textAlign: "center" }}>
         <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>✅</div>
-        <h2 style={{ color: "#10b981", marginBottom: "1rem" }}>Password Updated!</h2>
+        <h2 style={{ color: "#10b981", marginBottom: "1rem" }}>{t("password_reset.updated_title")}</h2>
         <p style={{ color: "#64748b", marginBottom: "1.5rem" }}>{message}</p>
-        <p style={{ color: "#64748b", fontSize: "0.9rem" }}>Redirecting to login...</p>
+        <p style={{ color: "#64748b", fontSize: "0.9rem" }}>{t("password_reset.redirecting")}</p>
       </div>
     );
   }
 
   return (
     <div style={{ maxWidth: "450px", margin: "4rem auto", padding: "2rem", background: "white", borderRadius: "16px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}>
-      <h2 style={{ textAlign: "center", color: "#1e293b", marginBottom: "0.5rem" }}>🔑 Reset Password</h2>
+      <h2 style={{ textAlign: "center", color: "#1e293b", marginBottom: "0.5rem" }}>🔑 {t("password_reset.reset_title")}</h2>
       <p style={{ textAlign: "center", color: "#64748b", marginBottom: "2rem", fontSize: "0.95rem" }}>
-        Enter your new password below.
+        {t("password_reset.reset_desc")}
       </p>
 
       {error && (
@@ -75,25 +77,25 @@ function ResetPassword() {
 
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
         <div>
-          <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#475569" }}>New Password</label>
+          <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#475569" }}>{t("auth.password")}</label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            placeholder="Must be at least 6 characters"
+            placeholder={t("password_reset.password_min")}
             style={{ width: "100%", padding: "0.75rem", borderRadius: "8px", border: "1px solid #e2e8f0", boxSizing: "border-box" }}
           />
         </div>
 
         <div>
-          <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#475569" }}>Confirm New Password</label>
+          <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#475569" }}>{t("auth.confirm_password")}</label>
           <input
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
-            placeholder="Repeat password"
+            placeholder={t("password_reset.repeat_password")}
             style={{ width: "100%", padding: "0.75rem", borderRadius: "8px", border: "1px solid #e2e8f0", boxSizing: "border-box" }}
           />
         </div>
@@ -113,12 +115,12 @@ function ResetPassword() {
             marginTop: "0.5rem"
           }}
         >
-          {loading ? "Updating Password... 🔄" : "Reset Password"}
+          {loading ? `${t("password_reset.updating")} 🔄` : t("password_reset.reset_button")}
         </button>
       </form>
 
       <p style={{ textAlign: "center", marginTop: "1.5rem", fontSize: "0.9rem", color: "#64748b" }}>
-        <Link to="/login" style={{ color: "#6366f1", fontWeight: "600", textDecoration: "none" }}>← Back to Login</Link>
+        <Link to="/login" style={{ color: "#6366f1", fontWeight: "600", textDecoration: "none" }}>← {t("password_reset.back_login")}</Link>
       </p>
     </div>
   );

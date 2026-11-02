@@ -1,11 +1,13 @@
 // frontend/src/pages/Payment.jsx
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { paymentApi } from "../api/paymentApi";
 
 function Payment({ onOrderSuccess }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
   
   // Get order details passed from checkout
   const orderData = location.state?.orderData;
@@ -17,9 +19,9 @@ function Payment({ onOrderSuccess }) {
   if (!orderData) {
     return (
       <div style={{ textAlign: "center", padding: "4rem" }}>
-        <h2>No order data found.</h2>
+        <h2>{t("orders.no_details")}</h2>
         <button onClick={() => navigate("/cart")} style={{ marginTop: "1rem", padding: "0.75rem 1.5rem", background: "#6366f1", color: "white", border: "none", borderRadius: "8px", cursor: "pointer" }}>
-          ← Back to Cart
+          ← {t("cart.title")}
         </button>
       </div>
     );
@@ -65,10 +67,10 @@ function Payment({ onOrderSuccess }) {
 
   return (
     <div style={{ maxWidth: "600px", margin: "3rem auto", padding: "2rem", background: "white", borderRadius: "16px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}>
-      <h2 style={{ textAlign: "center", color: "#1e293b", marginBottom: "1.5rem" }}>💳 Choose Payment Method</h2>
+      <h2 style={{ textAlign: "center", color: "#1e293b", marginBottom: "1.5rem" }}>💳 {t("admin.choose_payment")}</h2>
       
       <div style={{ background: "#f8fafc", padding: "1.5rem", borderRadius: "12px", marginBottom: "1.5rem" }}>
-        <p style={{ margin: 0, color: "#64748b", fontSize: "0.9rem" }}>Total Amount to Pay:</p>
+        <p style={{ margin: 0, color: "#64748b", fontSize: "0.9rem" }}>{t("admin.amount_to_pay")}:</p>
         <p style={{ margin: "0.5rem 0 0 0", fontSize: "2rem", fontWeight: "800", color: "#0f172a" }}>
           {orderData.totalPrice.toLocaleString()} ETB
         </p>
@@ -99,8 +101,8 @@ function Payment({ onOrderSuccess }) {
             style={{ width: "20px", height: "20px", accentColor: "#6366f1" }}
           />
           <div>
-            <div style={{ fontWeight: "700", color: "#0f172a" }}>Chapa (Online Payment)</div>
-            <div style={{ fontSize: "0.85rem", color: "#64748b" }}>Pay securely with Telebirr, CBE Birr, or Bank Card</div>
+            <div style={{ fontWeight: "700", color: "#0f172a" }}>{t("admin.chapa_online")}</div>
+            <div style={{ fontSize: "0.85rem", color: "#64748b" }}>{t("admin.chapa_payment_desc")}</div>
           </div>
         </label>
 
@@ -122,8 +124,8 @@ function Payment({ onOrderSuccess }) {
             style={{ width: "20px", height: "20px", accentColor: "#6366f1" }}
           />
           <div>
-            <div style={{ fontWeight: "700", color: "#0f172a" }}>Cash on Delivery (COD)</div>
-            <div style={{ fontSize: "0.85rem", color: "#64748b" }}>Pay in cash when your order arrives</div>
+            <div style={{ fontWeight: "700", color: "#0f172a" }}>{t("admin.cod")}</div>
+            <div style={{ fontSize: "0.85rem", color: "#64748b" }}>{t("checkout.cod_desc")}</div>
           </div>
         </label>
 
@@ -143,7 +145,7 @@ function Payment({ onOrderSuccess }) {
             transition: "transform 0.2s"
           }}
         >
-          {isLoading ? "Processing... 🔄" : (paymentMethod === "chapa" ? "Proceed to Chapa Payment" : "Place Order (COD)")}
+          {isLoading ? `${t("admin.processing_payment")} 🔄` : (paymentMethod === "chapa" ? t("admin.proceed_chapa") : t("admin.place_cod"))}
         </button>
       </form>
 
@@ -154,7 +156,7 @@ function Payment({ onOrderSuccess }) {
           color: "#64748b", border: "none", cursor: "pointer", fontWeight: "600" 
         }}
       >
-        ← Cancel and go back
+        ← {t("admin.cancel_back")}
       </button>
     </div>
   );

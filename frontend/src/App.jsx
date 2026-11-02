@@ -36,7 +36,7 @@ import OrderDetail from "./pages/OrderDetail";
 // Components
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
-   import Chatbot from "./components/Chatbot";
+import Chatbot from "./components/Chatbot";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -148,6 +148,7 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
 
+        {/* Admin Routes - PROTECTED */}
         <Route path="/admin/*" element={
           user?.role === "admin" ? (
             <AdminLayout user={user} onLogout={handleLogout} />
@@ -162,82 +163,40 @@ function App() {
           <Route path="users" element={<Users />} />
         </Route>
 
-        <Route path="/orders/:id" element={
-          user ? (
-            <>
-              <Navbar cartCount={getCartCount()} user={user} handleLogout={handleLogout} />
-              <OrderDetail addToCart={addToCart} />
-              <Footer />
-            </>
-          ) : <Navigate to="/login" replace />
-        } />
-
-        <Route path="/wishlist" element={
-          user ? (
-            <>
-              <Navbar cartCount={getCartCount()} user={user} handleLogout={handleLogout} />
-              <Wishlist addToCart={addToCart} />
-              <Footer />
-            </>
-          ) : <Navigate to="/login" replace />
-        } />
-
-        <Route path="/profile" element={
-          user ? (
-            <>
-              <Navbar cartCount={getCartCount()} user={user} handleLogout={handleLogout} />
-              <Profile 
-                user={user} 
-                onUserUpdate={(updatedUser) => {
-                  setUser(updatedUser);
-                  localStorage.setItem("user", JSON.stringify(updatedUser));
-                }} 
-              />
-              <Footer />
-            </>
-          ) : <Navigate to="/login" replace />
-        } />
-
+        {/* ✅ PUBLIC ROUTES - Accessible without login */}
         <Route path="/" element={
-          user ? (
-            <>
-              <Navbar cartCount={getCartCount()} user={user} handleLogout={handleLogout} />
-              <Home addToCart={addToCart} />
-              <Footer />
-            </>
-          ) : <Navigate to="/login" replace />
+          <>
+            <Navbar cartCount={getCartCount()} user={user} handleLogout={handleLogout} />
+            <Home addToCart={addToCart} user={user} />
+            <Footer />
+          </>
         } />
 
         <Route path="/products" element={
-          user ? (
-            <>
-              <Navbar cartCount={getCartCount()} user={user} handleLogout={handleLogout} />
-              <ProductsPublic addToCart={addToCart} />
-              <Footer />
-            </>
-          ) : <Navigate to="/login" replace />
+          <>
+            <Navbar cartCount={getCartCount()} user={user} handleLogout={handleLogout} />
+            <ProductsPublic addToCart={addToCart} user={user} />
+            <Footer />
+          </>
         } />
 
         <Route path="/product/:id" element={
-          user ? (
-            <>
-              <Navbar cartCount={getCartCount()} user={user} handleLogout={handleLogout} />
-              <ProductDetail addToCart={addToCart} user={user} />
-              <Footer />
-            </>
-          ) : <Navigate to="/login" replace />
+          <>
+            <Navbar cartCount={getCartCount()} user={user} handleLogout={handleLogout} />
+            <ProductDetail addToCart={addToCart} user={user} />
+            <Footer />
+          </>
         } />
 
         <Route path="/cart" element={
-          user ? (
-            <>
-              <Navbar cartCount={getCartCount()} user={user} handleLogout={handleLogout} />
-              <Cart cart={cart} removeFromCart={removeFromCart} updateQuantity={updateQuantity} />
-              <Footer />
-            </>
-          ) : <Navigate to="/login" replace />
+          <>
+            <Navbar cartCount={getCartCount()} user={user} handleLogout={handleLogout} />
+            <Cart cart={cart} removeFromCart={removeFromCart} updateQuantity={updateQuantity} />
+            <Footer />
+          </>
         } />
 
+        {/* ✅ PROTECTED ROUTES - Require login */}
         <Route path="/checkout" element={
           user ? (
             <>
@@ -281,9 +240,45 @@ function App() {
           ) : <Navigate to="/login" replace />
         } />
 
+        <Route path="/orders/:id" element={
+          user ? (
+            <>
+              <Navbar cartCount={getCartCount()} user={user} handleLogout={handleLogout} />
+              <OrderDetail addToCart={addToCart} />
+              <Footer />
+            </>
+          ) : <Navigate to="/login" replace />
+        } />
+
+        <Route path="/wishlist" element={
+          user ? (
+            <>
+              <Navbar cartCount={getCartCount()} user={user} handleLogout={handleLogout} />
+              <Wishlist addToCart={addToCart} />
+              <Footer />
+            </>
+          ) : <Navigate to="/login" replace />
+        } />
+
+        <Route path="/profile" element={
+          user ? (
+            <>
+              <Navbar cartCount={getCartCount()} user={user} handleLogout={handleLogout} />
+              <Profile 
+                user={user} 
+                onUserUpdate={(updatedUser) => {
+                  setUser(updatedUser);
+                  localStorage.setItem("user", JSON.stringify(updatedUser));
+                }} 
+              />
+              <Footer />
+            </>
+          ) : <Navigate to="/login" replace />
+        } />
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-       <Chatbot /> 
+      <Chatbot /> 
     </Router>
   );
 }

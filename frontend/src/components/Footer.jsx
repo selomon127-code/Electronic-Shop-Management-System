@@ -46,54 +46,53 @@ function Footer() {
   };
 
   return (
-    <footer style={{ background: "#0f172a", color: "#cbd5e1", padding: "4rem 1.5rem 2rem", fontFamily: "'Inter', sans-serif" }}>
-      <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "3rem", marginBottom: "3rem" }}>
+    <footer style={{ background: "#0f172a", color: "#cbd5e1", padding: "2.5rem 1.5rem 1.5rem" }}>
+      <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "2rem", marginBottom: "2rem" }}>
           
           {/* About Section */}
           <div>
-            
-<Link to="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", marginBottom: "1rem" }}>
-  <img 
-    src="/logo.png" 
-    alt="E-Shop Ethiopia Logo" 
-    style={{ 
-      height: "95px", /* Adjust this to make your logo bigger or smaller */
-      width: "auto", 
-      objectFit: "contain" 
-    }} 
-  />
-</Link>
-            <p style={{ lineHeight: "1.6", fontSize: "0.95rem", color: "#94a3b8" }}>
+            <Link to="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", marginBottom: "0.75rem" }}>
+              <img 
+                src="/electronic-shop-logo.svg" 
+                alt="E-Shop Ethiopia Logo" 
+                style={{ 
+                  width: "min(100%, 300px)",
+                  height: "auto",
+                  objectFit: "contain" 
+                }} 
+              />
+            </Link>
+            <p style={{ lineHeight: "1.5", fontSize: "0.9rem", color: "#94a3b8", margin: 0 }}>
               {t("footer.about_text") || "Your trusted online electronics store in Ethiopia. Quality products, fast delivery, and excellent customer service."}
             </p>
           </div>
 
           {/* Quick Links */}
           <div>
-            <h3 style={{ color: "white", marginBottom: "1.2rem", fontSize: "1.1rem" }}>{t("footer.quick_links") || "Quick Links"}</h3>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "0.8rem" }}>
-              <li><Link to="/" style={{ color: "#94a3b8", textDecoration: "none", transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#fff"} onMouseLeave={(e) => e.target.style.color = "#94a3b8"}>{t("footer.home") || "Home"}</Link></li>
-              <li><Link to="/products" style={{ color: "#94a3b8", textDecoration: "none", transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#fff"} onMouseLeave={(e) => e.target.style.color = "#94a3b8"}>{t("footer.products") || "Products"}</Link></li>
-              <li><Link to="/cart" style={{ color: "#94a3b8", textDecoration: "none", transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#fff"} onMouseLeave={(e) => e.target.style.color = "#94a3b8"}>{t("footer.cart") || "Cart"}</Link></li>
-              <li><Link to="/wishlist" style={{ color: "#94a3b8", textDecoration: "none", transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#fff"} onMouseLeave={(e) => e.target.style.color = "#94a3b8"}>{t("footer.wishlist") || "Wishlist"}</Link></li>
+            <h3 style={{ color: "white", marginBottom: "1rem", fontSize: "1rem", fontWeight: "700" }}>{t("footer.quick_links") || "Quick Links"}</h3>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+              <li><Link to="/" style={{ color: "#94a3b8", textDecoration: "none", transition: "color 0.2s", fontSize: "0.9rem" }} onMouseEnter={(e) => e.target.style.color = "#fff"} onMouseLeave={(e) => e.target.style.color = "#94a3b8"}>{t("footer.home") || "Home"}</Link></li>
+              <li><Link to="/products" style={{ color: "#94a3b8", textDecoration: "none", transition: "color 0.2s", fontSize: "0.9rem" }} onMouseEnter={(e) => e.target.style.color = "#fff"} onMouseLeave={(e) => e.target.style.color = "#94a3b8"}>{t("footer.products") || "Products"}</Link></li>
+              <li><Link to="/cart" style={{ color: "#94a3b8", textDecoration: "none", transition: "color 0.2s", fontSize: "0.9rem" }} onMouseEnter={(e) => e.target.style.color = "#fff"} onMouseLeave={(e) => e.target.style.color = "#94a3b8"}>{t("footer.cart") || "Cart"}</Link></li>
+              <li><Link to="/wishlist" style={{ color: "#94a3b8", textDecoration: "none", transition: "color 0.2s", fontSize: "0.9rem" }} onMouseEnter={(e) => e.target.style.color = "#fff"} onMouseLeave={(e) => e.target.style.color = "#94a3b8"}>{t("footer.wishlist") || "Wishlist"}</Link></li>
             </ul>
           </div>
 
           {/* Contact Us */}
           <div>
-            <h3 style={{ color: "white", marginBottom: "1.2rem", fontSize: "1.1rem" }}>{t("footer.contact_us") || "Contact Us"}</h3>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "0.8rem" }}>
-              <li style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", color: "#94a3b8" }}>
-                <span style={{ fontSize: "1.2rem" }}>📍</span>
+            <h3 style={{ color: "white", marginBottom: "1rem", fontSize: "1rem", fontWeight: "700" }}>{t("footer.contact_us") || "Contact Us"}</h3>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+              <li style={{ display: "flex", alignItems: "flex-start", gap: "0.6rem", color: "#94a3b8", fontSize: "0.9rem" }}>
+                <span style={{ fontSize: "1.1rem", marginTop: "-2px" }}>📍</span>
                 <span>{t("footer.address") || "Addis Ababa, Ethiopia"}</span>
               </li>
-              <li style={{ display: "flex", alignItems: "center", gap: "0.75rem", color: "#94a3b8" }}>
-                <span style={{ fontSize: "1.2rem" }}></span>
+              <li style={{ display: "flex", alignItems: "center", gap: "0.6rem", color: "#94a3b8", fontSize: "0.9rem" }}>
+                <span style={{ fontSize: "1.1rem" }}>📞</span>
                 <span>{t("footer.phone") || "+251 911 234 567"}</span>
               </li>
-              <li style={{ display: "flex", alignItems: "center", gap: "0.75rem", color: "#94a3b8" }}>
-                <span style={{ fontSize: "1.2rem" }}>✉️</span>
+              <li style={{ display: "flex", alignItems: "center", gap: "0.6rem", color: "#94a3b8", fontSize: "0.9rem" }}>
+                <span style={{ fontSize: "1.1rem" }}>✉️</span>
                 <a href="mailto:selomon127@gmail.com" style={{ color: "#94a3b8", textDecoration: "none", transition: "color 0.2s" }}
                    onMouseEnter={(e) => e.target.style.color = "#60a5fa"}
                    onMouseLeave={(e) => e.target.style.color = "#94a3b8"}>
@@ -105,8 +104,8 @@ function Footer() {
 
           {/* Follow Us */}
           <div>
-            <h3 style={{ color: "white", marginBottom: "1.2rem", fontSize: "1.1rem" }}>{t("footer.follow_us") || "Follow Us"}</h3>
-            <div style={{ display: "flex", gap: "0.75rem" }}>
+            <h3 style={{ color: "white", marginBottom: "1rem", fontSize: "1rem", fontWeight: "700" }}>{t("footer.follow_us") || "Follow Us"}</h3>
+            <div style={{ display: "flex", gap: "0.6rem" }}>
               {Object.entries(icons).map(([platform, icon]) => (
                 <a 
                   key={platform} 
@@ -114,7 +113,7 @@ function Footer() {
                   target="_blank" 
                   rel="noopener noreferrer"
                   style={{ 
-                    width: "42px", height: "42px", borderRadius: "50%", 
+                    width: "38px", height: "38px", borderRadius: "50%", 
                     background: "rgba(255,255,255,0.08)", display: "flex", 
                     alignItems: "center", justifyContent: "center", 
                     textDecoration: "none", color: "white",
@@ -137,18 +136,18 @@ function Footer() {
                 </a>
               ))}
             </div>
-            <p style={{ marginTop: "1rem", fontSize: "0.85rem", color: "#64748b" }}>
+            <p style={{ marginTop: "0.75rem", fontSize: "0.8rem", color: "#64748b", margin: 0 }}>
               Stay connected for updates & deals
             </p>
           </div>
         </div>
 
         {/* Copyright */}
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "2rem", marginTop: "2rem", textAlign: "center", color: "#64748b", fontSize: "0.9rem" }}>
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "1.5rem", textAlign: "center", color: "#64748b", fontSize: "0.85rem" }}>
           <p style={{ margin: 0 }}>
             {t("footer.copyright") || "© 2024 E-Shop Ethiopia. All rights reserved."}
           </p>
-          <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.8rem" }}>
+          <p style={{ margin: "0.4rem 0 0 0", fontSize: "0.8rem" }}>
             Designed with ❤️ in Ethiopia
           </p>
         </div>

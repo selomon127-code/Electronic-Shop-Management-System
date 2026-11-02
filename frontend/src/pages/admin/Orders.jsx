@@ -1,5 +1,6 @@
 // ecommerce-app/src/pages/admin/Orders.jsx
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { adminApi } from "../../api/adminApi";
 import {
   AdminStyles, Icon, Kpi, Modal, PageHeader, StatusBadge, PaymentBadge, TableSkeleton, EmptyState, ErrorBanner,
@@ -29,6 +30,7 @@ function formatAddress(address) {
 }
 
 function Orders() {
+  const { t } = useTranslation();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -54,11 +56,11 @@ function Orders() {
       setOrders(data.orders || []);
     } catch (err) {
       if (id !== requestId.current) return;
-      setError(err.response?.data?.message || "Failed to load orders");
+      setError(err.response?.data?.message || t("admin.failed_load_orders"));
     } finally {
       if (id === requestId.current) setLoading(false);
     }
-  }, [filter, debouncedSearch]);
+  }, [filter, debouncedSearch, t]);
 
   useEffect(() => {
     fetchOrders();
@@ -70,9 +72,9 @@ function Orders() {
       await adminApi.updateOrderStatus(orderId, newStatus);
       setOrders((prev) => prev.map((o) => (o._id === orderId ? { ...o, status: newStatus } : o)));
       setSelectedOrder((o) => (o && o._id === orderId ? { ...o, status: newStatus } : o));
-      toast("success", `Order #${shortId(orderId)} marked as ${newStatus}`);
+      toast("success", t("admin.order_status_changed", { id: shortId(orderId), status: t(`admin.status_${newStatus}`, { defaultValue: newStatus }) }));
     } catch (err) {
-      toast("error", err.response?.data?.message || err.message || "Failed to update status");
+      toast("error", err.response?.data?.message || err.message || t("admin.failed_update_status"));
     } finally {
       setUpdatingId(null);
     }
@@ -80,9 +82,9 @@ function Orders() {
 
   const handleDeleteOrder = async (order) => {
     const ok = await confirm({
-      title: "Delete order?",
-      message: `Order #${shortId(order._id)} will be permanently deleted. This cannot be undone.`,
-      confirmLabel: "Delete order",
+      title: t("admin.delete_order_title"),
+      message: t("admin.delete_order_message", { id: shortId(order._id) }),
+      confirmLabel: t("admin.delete_order"),
       danger: true,
     });
     if (!ok) return;
@@ -90,9 +92,9 @@ function Orders() {
     try {
       await adminApi.deleteOrder(order._id);
       setOrders((prev) => prev.filter((o) => o._id !== order._id));
-      toast("success", `Order #${shortId(order._id)} deleted`);
+      toast("success", t("admin.order_deleted", { id: shortId(order._id) }));
     } catch (err) {
-      toast("error", err.response?.data?.message || err.message || "Failed to delete order");
+      toast("error", err.response?.data?.message || err.message || t("admin.failed_delete_order"));
     }
   };
 
@@ -103,17 +105,17 @@ function Orders() {
     <div className="ad">
       <AdminStyles />
 
-      <PageHeader title="Orders" subtitle="View and manage all customer orders">
+      <PageHeader title={t("nav.orders")} subtitle={t("admin.manage_orders_subtitle")}>
         <button className="ad-btn" onClick={fetchOrders} disabled={loading}>
           <span className={loading ? "ad-spin" : ""}><Icon name="refresh" size={16} /></span>
-          Refresh
+          {t("admin.refresh")}
         </button>
       </PageHeader>
 
       <div className="ad-kpis">
-        <Kpi label="Orders in view" value={num(orders.length)} icon="orders" color="#4f46e5" bg="#e0e7ff" />
-        <Kpi label="Value in view" value={money(totalValue)} icon="revenue" color="#059669" bg="#d1fae5" />
-        <Kpi label="Awaiting payment" value={num(unpaid)} icon="clock" color="#d97706" bg="#fef3c7" />
+        <Kpi label={t("admin.orders_in_view")} value={num(orders.length)} icon="orders" color="#4f46e5" bg="#e0e7ff" />
+        <Kpi label={t("admin.value_in_view")} value={money(totalValue)} icon="revenue" color="#059669" bg="#d1fae5" />
+        <Kpi label={t("admin.awaiting_payment")} value={num(unpaid)} icon="clock" color="#d97706" bg="#fef3c7" />
       </div>
 
       {/* Filters */}
@@ -123,17 +125,17 @@ function Orders() {
           <input
             className="ad-input"
             type="text"
-            placeholder="Search by city or phone…"
+            placeholder={t("admin.search_orders")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            aria-label="Search orders"
+            aria-label={t("admin.search_orders")}
           />
         </div>
-        <div className="ad-chips" role="group" aria-label="Filter by status">
-          <button className={`ad-chip ${filter === "" ? "on" : ""}`} onClick={() => setFilter("")}>All</button>
+        <div className="ad-chips" role="group" aria-label={t("admin.filter_status")}>
+          <button className={`ad-chip ${filter === "" ? "on" : ""}`} onClick={() => setFilter("")}>{t("admin.all")}</button>
           {STATUSES.map((s) => (
             <button key={s} className={`ad-chip ${filter === s ? "on" : ""}`} onClick={() => setFilter(s)}>
-              {STATUS_META[s].label}
+              {t(`admin.status_${s}`)}
             </button>
           ))}
         </div>
@@ -148,22 +150,22 @@ function Orders() {
         ) : orders.length === 0 ? (
           <EmptyState
             icon="orders"
-            title="No orders found"
-            text={filter || search ? "Try a different search or status filter." : "Orders will appear here once customers place them."}
+            title={t("admin.no_orders_found")}
+            text={filter || search ? t("admin.adjust_order_search") : t("admin.orders_empty")}
           />
         ) : (
           <div className="ad-table-wrap" style={{ opacity: loading ? 0.6 : 1, transition: "opacity .15s" }}>
             <table className="ad-table">
               <thead>
                 <tr>
-                  <th>Order</th>
-                  <th>Customer</th>
-                  <th>Items</th>
-                  <th>Total</th>
-                  <th>Payment</th>
-                  <th>Status</th>
-                  <th>Date</th>
-                  <th style={{ textAlign: "right" }}>Actions</th>
+                  <th>{t("admin.order")}</th>
+                  <th>{t("admin.customer")}</th>
+                  <th>{t("admin.items")}</th>
+                  <th>{t("admin.total")}</th>
+                  <th>{t("admin.payment")}</th>
+                  <th>{t("admin.status")}</th>
+                  <th>{t("admin.date")}</th>
+                  <th style={{ textAlign: "right" }}>{t("admin.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -173,10 +175,10 @@ function Orders() {
                     <tr key={order._id}>
                       <td><span className="ad-mono">#{shortId(order._id)}</span></td>
                       <td>
-                        <div style={{ fontWeight: 600 }}>{order.user?.name || "Guest"}</div>
+                        <div style={{ fontWeight: 600 }}>{order.user?.name || t("admin.guest")}</div>
                         {order.user?.email && <div className="ad-muted ad-small">{order.user.email}</div>}
                       </td>
-                      <td className="ad-muted">{order.products?.length || 0} items</td>
+                      <td className="ad-muted">{t("admin.item_count", { count: order.products?.length || 0 })}</td>
                       <td style={{ fontWeight: 700 }}>{money(order.totalPrice)}</td>
                       <td><PaymentBadge status={order.paymentStatus} /></td>
                       <td>
@@ -185,21 +187,21 @@ function Orders() {
                           value={order.status}
                           disabled={updatingId === order._id}
                           onChange={(e) => handleStatusChange(order._id, e.target.value)}
-                          aria-label={`Status for order ${shortId(order._id)}`}
+                          aria-label={t("admin.status_for_order", { id: shortId(order._id) })}
                           style={{ background: meta?.bg || "#f1f5f9", color: meta?.fg || "#475569" }}
                         >
                           {STATUSES.map((s) => (
-                            <option key={s} value={s}>{STATUS_META[s].label}</option>
+                            <option key={s} value={s}>{t(`admin.status_${s}`)}</option>
                           ))}
                         </select>
                       </td>
                       <td className="ad-muted">{formatDate(order.createdAt)}</td>
                       <td>
                         <div className="ad-row-actions" style={{ justifyContent: "flex-end" }}>
-                          <button className="ad-btn icon view" title="View details" aria-label="View details" onClick={() => setSelectedOrder(order)}>
+                          <button className="ad-btn icon view" title={t("admin.view_details")} aria-label={t("admin.view_details")} onClick={() => setSelectedOrder(order)}>
                             <Icon name="eye" size={16} />
                           </button>
-                          <button className="ad-btn icon del" title="Delete order" aria-label="Delete order" onClick={() => handleDeleteOrder(order)}>
+                          <button className="ad-btn icon del" title={t("admin.delete_order")} aria-label={t("admin.delete_order")} onClick={() => handleDeleteOrder(order)}>
                             <Icon name="trash" size={16} />
                           </button>
                         </div>
@@ -218,27 +220,27 @@ function Orders() {
         <Modal
           title={`Order #${shortId(selectedOrder._id)}`}
           onClose={() => setSelectedOrder(null)}
-          footer={<button className="ad-btn primary" onClick={() => setSelectedOrder(null)}>Close</button>}
+          footer={<button className="ad-btn primary" onClick={() => setSelectedOrder(null)}>{t("admin.close")}</button>}
         >
           <div style={{ display: "flex", gap: ".5rem", marginBottom: "1.25rem", flexWrap: "wrap" }}>
             <StatusBadge status={selectedOrder.status} />
             <PaymentBadge status={selectedOrder.paymentStatus} />
             <span className="ad-muted ad-small" style={{ alignSelf: "center" }}>
-              Placed {formatDate(selectedOrder.createdAt)}
+              {t("admin.placed_on", { date: formatDate(selectedOrder.createdAt) })}
             </span>
           </div>
 
-          <h4 className="ad-section-title">Customer</h4>
+          <h4 className="ad-section-title">{t("admin.customer")}</h4>
           <dl className="ad-kv">
-            <dt>Name</dt><dd>{selectedOrder.user?.name || "Guest"}</dd>
-            <dt>Email</dt><dd>{selectedOrder.user?.email || "—"}</dd>
-            <dt>Phone</dt><dd>{selectedOrder.phone || "—"}</dd>
+            <dt>{t("admin.name")}</dt><dd>{selectedOrder.user?.name || t("admin.guest")}</dd>
+            <dt>{t("admin.email")}</dt><dd>{selectedOrder.user?.email || "—"}</dd>
+            <dt>{t("admin.phone")}</dt><dd>{selectedOrder.phone || "—"}</dd>
           </dl>
 
-          <h4 className="ad-section-title">Shipping address</h4>
+          <h4 className="ad-section-title">{t("admin.shipping_address")}</h4>
           <p style={{ margin: "0 0 1.25rem", fontSize: ".9rem" }}>{formatAddress(selectedOrder.address)}</p>
 
-          <h4 className="ad-section-title">Items</h4>
+          <h4 className="ad-section-title">{t("admin.items")}</h4>
           {selectedOrder.products?.map((item, i) => (
             <div key={i} className="ad-line">
               <span>{item.name || item.product?.name} × {item.quantity}</span>
@@ -246,7 +248,7 @@ function Orders() {
             </div>
           ))}
           <div className="ad-line total">
-            <span>Total</span>
+            <span>{t("admin.total")}</span>
             <span>{money(selectedOrder.totalPrice)}</span>
           </div>
         </Modal>

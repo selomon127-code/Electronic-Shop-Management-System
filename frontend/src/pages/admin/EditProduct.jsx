@@ -1,9 +1,11 @@
 // ecommerce-app/src/pages/admin/EditProduct.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { productApi } from "../../api/productApi";
 
 function EditProduct() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   
@@ -21,7 +23,19 @@ function EditProduct() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentImage, setCurrentImage] = useState("");
 
-  const categories = ["Phone", "Laptop", "Audio", "Camera", "Tablet", "Accessories", "Electronics", "Clothing"];
+  const categories = [
+    "Smartphones",
+    "Laptops",
+    "TVs & Displays",
+    "Wearables",
+    "Gaming",
+    "Audio",
+    "Camera",
+    "Tablet",
+    "Accessories",
+    "Electronics",
+    
+  ];
 
   // ✅ Fetch existing product data
   useEffect(() => {
@@ -38,14 +52,14 @@ function EditProduct() {
         setCurrentImage(data.image || "");
       } catch (err) {
         console.error("❌ Failed to load product:", err);
-        setError("Could not load product details");
+        setError(t("admin.failed_load_product_details"));
       }
     };
     
     if (id) {
       fetchProduct();
     }
-  }, [id]);
+  }, [id, t]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -80,12 +94,12 @@ function EditProduct() {
 
       await productApi.update(id, data);
 
-      setSuccess("✅ Product updated successfully!");
+      setSuccess(`✅ ${t("admin.product_updated")}`);
       setTimeout(() => navigate("/admin/products"), 2000);
 
     } catch (err) {
       console.error("❌ Update product error:", err);
-      setError(err.response?.data?.message || "Failed to update product.");
+      setError(err.response?.data?.message || t("admin.failed_update_product"));
     } finally {
       setIsLoading(false);
     }
@@ -96,10 +110,10 @@ function EditProduct() {
       {/* Header */}
       <div style={{ marginBottom: "2rem" }}>
         <h1 style={{ margin: "0 0 0.5rem 0", fontSize: "2rem", color: "#1e293b", fontWeight: "700" }}>
-          ✏️ Edit Product
+          ✏️ {t("admin.edit_product")}
         </h1>
         <p style={{ margin: 0, color: "#64748b", fontSize: "1rem" }}>
-          Update product information
+          {t("admin.update_product_information")}
         </p>
       </div>
       
@@ -109,55 +123,55 @@ function EditProduct() {
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.5rem", background: "white", padding: "2rem", borderRadius: "12px", boxShadow: "0 4px 20px rgba(0,0,0,0.05)" }}>
         
         <div>
-          <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#475569" }}>Product Name *</label>
-          <input name="name" placeholder="Enter product name" value={formData.name} onChange={handleChange} required style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid #e2e8f0", width: "100%", boxSizing: "border-box" }} />
+          <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#475569" }}>{t("admin.product_name")} *</label>
+          <input name="name" placeholder={t("admin.enter_product_name")} value={formData.name} onChange={handleChange} required style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid #e2e8f0", width: "100%", boxSizing: "border-box" }} />
         </div>
         
         <div>
-          <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#475569" }}>Description</label>
-          <textarea name="description" placeholder="Enter product description" value={formData.description} onChange={handleChange} rows="4" style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid #e2e8f0", width: "100%", boxSizing: "border-box", resize: "vertical" }} />
+          <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#475569" }}>{t("admin.description")}</label>
+          <textarea name="description" placeholder={t("admin.enter_product_description")} value={formData.description} onChange={handleChange} rows="4" style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid #e2e8f0", width: "100%", boxSizing: "border-box", resize: "vertical" }} />
         </div>
         
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
           <div>
-            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#475569" }}>Price (ETB) *</label>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#475569" }}>{t("admin.price_etb")} *</label>
             <input name="price" type="number" placeholder="0.00" value={formData.price} onChange={handleChange} required min="0" step="0.01" style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid #e2e8f0", width: "100%", boxSizing: "border-box" }} />
           </div>
           <div>
-            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#475569" }}>Stock</label>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#475569" }}>{t("admin.stock")}</label>
             <input name="stock" type="number" placeholder="0" value={formData.stock} onChange={handleChange} min="0" style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid #e2e8f0", width: "100%", boxSizing: "border-box" }} />
           </div>
         </div>
 
         <div>
-          <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#475569" }}>Category</label>
+          <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#475569" }}>{t("admin.category")}</label>
           <select name="category" value={formData.category} onChange={handleChange} style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid #e2e8f0", width: "100%", boxSizing: "border-box" }}>
-            <option value="">Select a category</option>
-            {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+            <option value="">{t("admin.select_category")}</option>
+            {categories.map(cat => <option key={cat} value={cat}>{t(`admin.category_${cat.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")}`, { defaultValue: cat })}</option>)}
           </select>
         </div>
         
         <div>
-          <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#475569" }}>Product Image</label>
+          <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#475569" }}>{t("admin.product_image")}</label>
           
           {/* Show current image if no new one selected */}
           {currentImage && !previewUrl && (
             <div style={{ marginBottom: "0.75rem" }}>
-              <p style={{ fontSize: "0.85rem", color: "#64748b", marginBottom: "0.5rem" }}>Current Image:</p>
-              <img src={currentImage} alt="Current" style={{ width: "120px", height: "120px", objectFit: "cover", borderRadius: "8px", border: "2px solid #e2e8f0" }} />
+              <p style={{ fontSize: "0.85rem", color: "#64748b", marginBottom: "0.5rem" }}>{t("admin.current_image")}</p>
+              <img src={currentImage} alt={t("admin.current_image")} style={{ width: "120px", height: "120px", objectFit: "cover", borderRadius: "8px", border: "2px solid #e2e8f0" }} />
             </div>
           )}
           
           <input type="file" accept="image/*" onChange={handleFileChange} style={{ padding: "0.5rem", borderRadius: "8px", border: "1px solid #e2e8f0", width: "100%", boxSizing: "border-box" }} />
           <small style={{ color: "#64748b", fontSize: "0.85rem", display: "block", marginTop: "0.25rem" }}>
-            Leave empty to keep current image
+            {t("admin.keep_current_image_help")}
           </small>
           
           {/* Show preview of new image */}
           {previewUrl && (
             <div style={{ marginTop: "0.75rem" }}>
-              <p style={{ fontSize: "0.85rem", color: "#64748b", marginBottom: "0.5rem" }}>New Image Preview:</p>
-              <img src={previewUrl} alt="Preview" style={{ width: "120px", height: "120px", objectFit: "cover", borderRadius: "8px", border: "2px solid #e2e8f0" }} />
+              <p style={{ fontSize: "0.85rem", color: "#64748b", marginBottom: "0.5rem" }}>{t("admin.new_image_preview")}</p>
+              <img src={previewUrl} alt={t("admin.new_image_preview")} style={{ width: "120px", height: "120px", objectFit: "cover", borderRadius: "8px", border: "2px solid #e2e8f0" }} />
             </div>
           )}
         </div>
@@ -178,7 +192,7 @@ function EditProduct() {
               fontSize: "1rem"
             }}
           >
-            {isLoading ? "Updating... 🔄" : "💾 Update Product"}
+            {isLoading ? t("admin.updating") : `💾 ${t("admin.update_product")}`}
           </button>
           
           <button 
@@ -195,7 +209,7 @@ function EditProduct() {
               fontSize: "1rem"
             }}
           >
-            Cancel
+            {t("admin.cancel")}
           </button>
         </div>
       </form>

@@ -11,7 +11,7 @@ const auth = (req, res, next) => {
   if (!token) return res.status(401).json({ message: "No token provided" });
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = decoded.userId;
+    req.userId = decoded.id || decoded._id || decoded.userId;
     next();
   } catch (err) {
     return res.status(401).json({ message: "Invalid token" });
@@ -24,7 +24,7 @@ const adminAuth = async (req, res, next) => {
     const token = req.header("Authorization")?.replace("Bearer ", "");
     if (!token) return res.status(401).json({ message: "No token provided" });
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = decoded.userId;
+    req.userId = decoded.id || decoded._id || decoded.userId;
 
     const user = await User.findById(req.userId).select("role");
     if (!user || user.role !== "admin") {

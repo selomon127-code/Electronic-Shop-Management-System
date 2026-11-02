@@ -1,12 +1,14 @@
 // ecommerce-app/src/pages/Wishlist.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { wishlistApi } from "../api/adminApi";
 
 const PLACEHOLDER = "https://placehold.co/400x300/e2e8f0/64748b?text=No+Image";
 
 function Wishlist({ addToCart }) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [wishlist, setWishlist] = useState([]);
   const [loading, setLoading] = useState(true);
   const [addedToCart, setAddedToCart] = useState({});
@@ -36,7 +38,7 @@ function Wishlist({ addToCart }) {
       setWishlist(data.products || []);
     } catch (err) {
       console.error("❌ Fetch wishlist error:", err);
-      showToast("Failed to load wishlist", "error");
+      showToast(t("wishlist.failed_load"), "error");
     } finally {
       setLoading(false);
     }
@@ -65,11 +67,11 @@ function Wishlist({ addToCart }) {
       setTimeout(() => {
         setWishlist((prev) => prev.filter((item) => item.productId !== productId));
         setRemovingId(null);
-        showToast("Removed from wishlist");
+        showToast(t("wishlist.removed"));
       }, 350);
     } catch (err) {
       setRemovingId(null);
-      showToast("Failed to remove: " + (err.response?.data?.message || err.message), "error");
+      showToast(`${t("wishlist.failed_remove")}: ${err.response?.data?.message || err.message}`, "error");
     }
   };
 
@@ -89,11 +91,11 @@ function Wishlist({ addToCart }) {
   const handleAddAllToCart = () => {
     const available = wishlist.filter(isInStock);
     if (available.length === 0) {
-      showToast("No items in stock to add to cart", "error");
+      showToast(t("wishlist.no_stock"), "error");
       return;
     }
     available.forEach((item) => addToCart(toCartItem(item)));
-    showToast(`${available.length} item${available.length === 1 ? "" : "s"} added to cart!`);
+    showToast(t("wishlist.items_added", { count: available.length }));
   };
 
   const handleClearAll = async () => {
@@ -102,9 +104,9 @@ function Wishlist({ addToCart }) {
       await wishlistApi.clearWishlist();
       setWishlist([]);
       setShowClearModal(false);
-      showToast("Wishlist cleared");
+      showToast(t("wishlist.cleared"));
     } catch (err) {
-      showToast("Failed to clear: " + (err.response?.data?.message || err.message), "error");
+      showToast(`${t("wishlist.failed_clear")}: ${err.response?.data?.message || err.message}`, "error");
     } finally {
       setClearing(false);
     }
@@ -122,23 +124,23 @@ function Wishlist({ addToCart }) {
         <div className="wl-blob b2" />
         <div className="wl-hero-inner">
           <h1>
-            <span className="wl-heart">❤️</span> My <span className="wl-gradient">Wishlist</span>
+            <span className="wl-heart">❤️</span> <span className="wl-gradient">{t("wishlist.title")}</span>
           </h1>
           <p>
             {loading
-              ? "Loading your favorites…"
-              : `${wishlist.length} ${wishlist.length === 1 ? "item" : "items"} saved${
-                  wishlist.length > 0 ? ` • ${inStockCount} in stock` : ""
+              ? t("common.loading")
+              : `${t("wishlist.items_saved", { count: wishlist.length })}${
+                  wishlist.length > 0 ? ` • ${t("wishlist.in_stock_count", { count: inStockCount })}` : ""
                 }`}
           </p>
 
           {wishlist.length > 0 && !loading && (
             <div className="wl-actions">
               <button className="wl-btn wl-btn-primary" onClick={handleAddAllToCart}>
-                🛒 Add All to Cart
+                🛒 {t("wishlist.add_all")}
               </button>
               <button className="wl-btn wl-btn-ghost" onClick={() => setShowClearModal(true)}>
-                🗑️ Clear All
+                🗑️ {t("wishlist.clear_all")}
               </button>
             </div>
           )}
@@ -161,10 +163,10 @@ function Wishlist({ addToCart }) {
           /* ================= EMPTY ================= */
           <div className="wl-empty">
             <div className="wl-empty-icon">💔</div>
-            <h3>Your wishlist is empty</h3>
-            <p>Tap the heart on any product to save it here for later.</p>
+            <h3>{t("wishlist.empty_title")}</h3>
+            <p>{t("wishlist.empty_desc")}</p>
             <button className="wl-btn wl-btn-primary" onClick={() => navigate("/products")}>
-              🛍️ Browse Products
+              🛍️ {t("wishlist.browse")}
             </button>
           </div>
         ) : (
@@ -191,9 +193,9 @@ function Wishlist({ addToCart }) {
                         e.target.src = PLACEHOLDER;
                       }}
                     />
-                    {!inStock && <span className="wl-oos-badge">Out of Stock</span>}
+                    {!inStock && <span className="wl-oos-badge">{t("wishlist.out_of_stock")}</span>}
                     {item.category && <span className="wl-cat">{item.category}</span>}
-                    {wasAdded && <div className="wl-added">✅ Added to Cart!</div>}
+                    {wasAdded && <div className="wl-added">✅ {t("wishlist.added_to_cart")}</div>}
                   </div>
 
                   {/* Info */}
@@ -210,7 +212,9 @@ function Wishlist({ addToCart }) {
                       </div>
                       <div className={`wl-stock ${inStock ? "ok" : "no"}`}>
                         <span className="wl-dot" />
-                        {inStock ? (item.stock ? `${item.stock} in stock` : "In Stock") : "Out of Stock"}
+                        {inStock
+                          ? (item.stock ? t("wishlist.in_stock_count", { count: item.stock }) : t("wishlist.in_stock"))
+                          : t("wishlist.out_of_stock")}
                       </div>
                     </div>
 
@@ -220,15 +224,15 @@ function Wishlist({ addToCart }) {
                         onClick={() => handleMoveToCart(item)}
                         disabled={!inStock}
                       >
-                        {!inStock ? "Out of Stock" : wasAdded ? "✅ Added!" : "🛒 Add to Cart"}
+                        {!inStock ? t("wishlist.out_of_stock") : wasAdded ? `✅ ${t("wishlist.added")}` : `🛒 ${t("wishlist.add_to_cart")}`}
                       </button>
 
                       {confirmId === item.productId ? (
                         <div className="wl-confirm">
-                          <button className="yes" onClick={() => handleRemove(item.productId)} aria-label="Confirm remove">
+                          <button className="yes" onClick={() => handleRemove(item.productId)} aria-label={t("wishlist.confirm_remove")}>
                             ✓
                           </button>
-                          <button className="no" onClick={() => setConfirmId(null)} aria-label="Cancel">
+                          <button className="no" onClick={() => setConfirmId(null)} aria-label={t("wishlist.cancel")}>
                             ✕
                           </button>
                         </div>
@@ -255,17 +259,16 @@ function Wishlist({ addToCart }) {
         <div className="wl-overlay" onClick={() => !clearing && setShowClearModal(false)}>
           <div className="wl-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
             <div className="wl-modal-icon">⚠️</div>
-            <h3>Clear entire wishlist?</h3>
+            <h3>{t("wishlist.clear_confirm_title")}</h3>
             <p>
-              This will remove all {wishlist.length} saved {wishlist.length === 1 ? "item" : "items"}. This
-              cannot be undone.
+                {t("wishlist.clear_confirm_desc", { count: wishlist.length })}
             </p>
             <div className="wl-modal-actions">
               <button className="wl-btn wl-btn-cancel" onClick={() => setShowClearModal(false)} disabled={clearing}>
-                Cancel
+                {t("wishlist.cancel")}
               </button>
               <button className="wl-btn wl-btn-danger" onClick={handleClearAll} disabled={clearing}>
-                {clearing ? "Clearing…" : "Yes, clear all"}
+                {clearing ? t("wishlist.clearing") : t("wishlist.confirm_clear")}
               </button>
             </div>
           </div>

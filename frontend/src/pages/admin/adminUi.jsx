@@ -3,6 +3,7 @@
 // Shared styles, icons, helpers and small UI pieces for the admin pages
 // (Orders, Products, Users, AddProduct).
 import React, { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 
 /* ------------------------------ Styles ------------------------------ */
 
@@ -208,10 +209,10 @@ export const num = (n) => new Intl.NumberFormat("en-US").format(Number(n) || 0);
 export const formatDate = (d, fallback = "—") =>
   d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : fallback;
 
-export const NO_IMAGE =
+export const getNoImage = (label) =>
   "data:image/svg+xml;utf8," +
   encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><rect width="300" height="300" fill="#f1f5f9"/><text x="50%" y="50%" fill="#94a3b8" font-family="sans-serif" font-size="16" text-anchor="middle" dominant-baseline="middle">No image</text></svg>'
+    `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><rect width="300" height="300" fill="#f1f5f9"/><text x="50%" y="50%" fill="#94a3b8" font-family="sans-serif" font-size="16" text-anchor="middle" dominant-baseline="middle">${label}</text></svg>`
   );
 
 export function useDebounced(value, ms = 350) {
@@ -252,26 +253,29 @@ export function Kpi({ label, value, icon, color, bg }) {
 }
 
 export function StatusBadge({ status }) {
+  const { t } = useTranslation();
   const m = STATUS_META[status] || { bg: "#f1f5f9", fg: "#475569", label: status || "—" };
   return (
     <span className="ad-badge" style={{ background: m.bg, color: m.fg }}>
       <i />
-      {m.label}
+      {t(`admin.status_${status}`, { defaultValue: m.label })}
     </span>
   );
 }
 
 export function PaymentBadge({ status }) {
+  const { t } = useTranslation();
   const paid = status === "paid";
   return (
     <span className="ad-badge" style={{ background: paid ? "#d1fae5" : "#fef3c7", color: paid ? "#065f46" : "#92400e" }}>
       <i />
-      {paid ? "Paid" : status ? status.charAt(0).toUpperCase() + status.slice(1) : "Unpaid"}
+      {paid ? t("admin.paid") : status ? t(`admin.payment_${status}`, { defaultValue: status.charAt(0).toUpperCase() + status.slice(1) }) : t("admin.unpaid")}
     </span>
   );
 }
 
 export function Modal({ title, onClose, children, footer, width = 560 }) {
+  const { t } = useTranslation();
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -284,7 +288,7 @@ export function Modal({ title, onClose, children, footer, width = 560 }) {
         onMouseDown={(e) => e.stopPropagation()}>
         <div className="ad-modal-head">
           <h2>{title}</h2>
-          <button type="button" className="ad-btn icon sm" onClick={onClose} aria-label="Close">
+          <button type="button" className="ad-btn icon sm" onClick={onClose} aria-label={t("admin.close")}>
             <Icon name="x" size={16} />
           </button>
         </div>
@@ -317,13 +321,14 @@ export function EmptyState({ icon = "orders", title, text, children }) {
 }
 
 export function ErrorBanner({ message, onRetry }) {
+  const { t } = useTranslation();
   return (
     <div className="ad-error" role="alert">
       <Icon name="alert" size={20} />
       <span>{message}</span>
       {onRetry && (
         <button className="ad-btn sm" onClick={onRetry}>
-          <Icon name="refresh" size={14} /> Retry
+          <Icon name="refresh" size={14} /> {t("admin.retry")}
         </button>
       )}
     </div>
@@ -338,6 +343,7 @@ export function ErrorBanner({ message, onRetry }) {
  *   ...render {ui} once in the page.
  */
 export function useFeedback() {
+  const { t } = useTranslation();
   const [toasts, setToasts] = useState([]);
   const [dialog, setDialog] = useState(null);
 
@@ -369,14 +375,14 @@ export function useFeedback() {
       </div>
       {dialog && (
         <Modal
-          title={dialog.title || "Are you sure?"}
+          title={dialog.title || t("admin.are_you_sure")}
           width={440}
           onClose={() => close(false)}
           footer={
             <>
-              <button className="ad-btn" onClick={() => close(false)}>Cancel</button>
+              <button className="ad-btn" onClick={() => close(false)}>{t("admin.cancel")}</button>
               <button className={`ad-btn ${dialog.danger ? "danger" : "primary"}`} onClick={() => close(true)}>
-                {dialog.confirmLabel || "Confirm"}
+                {dialog.confirmLabel || t("admin.confirm")}
               </button>
             </>
           }

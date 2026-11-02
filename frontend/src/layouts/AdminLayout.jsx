@@ -1,18 +1,25 @@
 // ecommerce-app/src/layouts/AdminLayout.jsx
 import React, { useState, useEffect } from "react";
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import ThemeToggle from "../components/ThemeToggle";
+import LogoutConfirmationDialog from "../components/LogoutConfirmationDialog";
 
 function AdminLayout({ user, onLogout }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
   // 🔐 Redirect NON-ADMINS away from admin panel
   useEffect(() => {
     // Wait for user to load (could be undefined, null, or object)
     if (user === undefined) return; // Still loading
     
-    if (!user || user.role !== "admin") {
+    if (!user) {
+      navigate("/", { replace: true });
+    } else if (user.role !== "admin") {
       console.log("❌ Admin access denied for user:", user);
       navigate("/", { replace: true });
     } else {
@@ -32,7 +39,7 @@ function AdminLayout({ user, onLogout }) {
       }}>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: "2rem", marginBottom: "1rem" }}>🔐</div>
-          <p style={{ color: "#666" }}>Checking admin access...</p>
+          <p style={{ color: "#666" }}>{t("admin.access_check")}</p>
         </div>
       </div>
     );
@@ -44,10 +51,10 @@ function AdminLayout({ user, onLogout }) {
   }
 
   const adminMenuItems = [
-    { path: "/admin/dashboard", label: "Dashboard", icon: "📊" },
-    { path: "/admin/orders", label: "Orders", icon: "📦" },
-    { path: "/admin/products", label: "Products", icon: "🛍️" },
-    { path: "/admin/users", label: "Users", icon: "👥" },
+    { path: "/admin/dashboard", label: t("nav.dashboard"), icon: "📊" },
+    { path: "/admin/orders", label: t("nav.orders"), icon: "📦" },
+    { path: "/admin/products", label: t("nav.products"), icon: "🛍️" },
+    { path: "/admin/users", label: t("admin.users"), icon: "👥" },
   ];
 
   const handleLogout = () => {
@@ -56,7 +63,12 @@ function AdminLayout({ user, onLogout }) {
     }
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    navigate("/login");
+    navigate("/");
+  };
+
+  const confirmLogout = () => {
+    setLogoutDialogOpen(false);
+    handleLogout();
   };
 
   return (
@@ -87,9 +99,10 @@ function AdminLayout({ user, onLogout }) {
         }}>
           {sidebarOpen && (
             <h2 style={{ margin: 0, fontSize: "1.3rem", fontWeight: "700" }}>
-              🛠️ Admin Panel
+              🛠️ {t("admin.panel")}
             </h2>
           )}
+          <ThemeToggle />
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             style={{
@@ -118,7 +131,7 @@ function AdminLayout({ user, onLogout }) {
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
               <span style={{ fontWeight: "600", fontSize: "0.95rem" }}>
-                👤 {user.name || "Admin"}
+                👤 {user.name || t("admin.admin_role")}
               </span>
               {user.role === "admin" && (
                 <span style={{
@@ -130,7 +143,7 @@ function AdminLayout({ user, onLogout }) {
                   fontWeight: "600",
                   textTransform: "uppercase"
                 }}>
-                  Admin
+                  {t("admin.admin_role")}
                 </span>
               )}
             </div>
@@ -194,7 +207,7 @@ function AdminLayout({ user, onLogout }) {
         {/* Logout Button */}
         <div style={{ padding: "1rem", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
           <button
-            onClick={handleLogout}
+            onClick={() => setLogoutDialogOpen(true)}
             style={{
               width: "100%",
               padding: "0.75rem",
@@ -214,7 +227,7 @@ function AdminLayout({ user, onLogout }) {
             onMouseLeave={(e) => e.currentTarget.style.background = "rgba(231, 76, 60, 0.9)"}
           >
             <span style={{ marginRight: sidebarOpen ? "0.5rem" : "0" }}>🚪</span>
-            {sidebarOpen && "Logout"}
+            {sidebarOpen && t("admin.logout")}
           </button>
         </div>
       </aside>
@@ -230,6 +243,12 @@ function AdminLayout({ user, onLogout }) {
       }}>
         <Outlet />
       </main>
+      {logoutDialogOpen && (
+        <LogoutConfirmationDialog
+          onCancel={() => setLogoutDialogOpen(false)}
+          onConfirm={confirmLogout}
+        />
+      )}
     </div>
   );
 }

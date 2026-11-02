@@ -1,10 +1,12 @@
 // ecommerce-app/src/pages/OrderConfirmation.jsx
 import React, { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import API from "../api/axios";
 
 function OrderConfirmation() {
   const [searchParams] = useSearchParams();
+  const { t } = useTranslation();
   const orderId = searchParams.get("orderId");
 
   const [order, setOrder] = useState(null);
@@ -32,15 +34,15 @@ function OrderConfirmation() {
   }, [orderId]);
 
   if (loading) {
-    return <div style={{ textAlign: "center", padding: "4rem" }}>Verifying your order... 🔄</div>;
+    return <div style={{ textAlign: "center", padding: "4rem" }}>{t("orders.verify")} 🔄</div>;
   }
 
   // If no orderId was passed in the URL
   if (!orderId) {
     return (
       <div style={{ textAlign: "center", padding: "4rem" }}>
-        <h2>No order details found.</h2>
-        <Link to="/products" style={{ color: "#6366f1", fontWeight: "600" }}>← Back to Products</Link>
+        <h2>{t("orders.no_details")}</h2>
+        <Link to="/products" style={{ color: "#6366f1", fontWeight: "600" }}>← {t("products.back_to_products")}</Link>
       </div>
     );
   }
@@ -58,14 +60,14 @@ function OrderConfirmation() {
       </div>
 
       <h1 style={{ fontSize: "2.5rem", color: "#1e293b", marginBottom: "1rem" }}>
-        {order?.paymentMethod === 'cod' ? 'Order Placed Successfully!' : 'Payment Successful!'}
+        {order?.paymentMethod === 'cod' ? t("orders.placed_success") : t("orders.payment_success")}
       </h1>
       
       <p style={{ fontSize: "1.1rem", color: "#64748b", marginBottom: "2rem" }}>
-        Thank you for shopping with E-Shop Ethiopia. 
+        {t("orders.thanks")}{" "}
         {order?.paymentMethod === 'cod' 
-          ? " Please have the exact cash ready when our delivery agent arrives." 
-          : " Your payment has been verified and your order is being processed."}
+          ? t("orders.cod_instructions")
+          : t("orders.payment_verified")}
       </p>
 
       {/* Order Details Box */}
@@ -76,13 +78,13 @@ function OrderConfirmation() {
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem", borderBottom: "1px solid #e2e8f0", paddingBottom: "1rem" }}>
             <div>
-              <p style={{ margin: 0, color: "#64748b", fontSize: "0.9rem" }}>Order Number</p>
+              <p style={{ margin: 0, color: "#64748b", fontSize: "0.9rem" }}>{t("orders.number")}</p>
               <p style={{ margin: "0.25rem 0 0 0", fontWeight: "700", fontSize: "1.2rem", color: "#1e293b" }}>
                 #{order._id.slice(-6).toUpperCase()}
               </p>
             </div>
             <div style={{ textAlign: "right" }}>
-              <p style={{ margin: 0, color: "#64748b", fontSize: "0.9rem" }}>Total Paid</p>
+              <p style={{ margin: 0, color: "#64748b", fontSize: "0.9rem" }}>{t("orders.total_paid")}</p>
               <p style={{ margin: "0.25rem 0 0 0", fontWeight: "700", fontSize: "1.2rem", color: "#10b981" }}>
                 {order.totalPrice.toLocaleString()} ETB
               </p>
@@ -91,15 +93,15 @@ function OrderConfirmation() {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
             <div>
-              <p style={{ margin: 0, color: "#64748b", fontSize: "0.9rem" }}>Payment Method</p>
+              <p style={{ margin: 0, color: "#64748b", fontSize: "0.9rem" }}>{t("orders.payment_method")}</p>
               <p style={{ margin: "0.25rem 0 0 0", fontWeight: "600", color: "#1e293b", textTransform: "capitalize" }}>
-                {order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Chapa (Online)'}
+                {order.paymentMethod === 'cod' ? t("orders.cash_on_delivery") : t("orders.chapa_online")}
               </p>
             </div>
             <div>
-              <p style={{ margin: 0, color: "#64748b", fontSize: "0.9rem" }}>Estimated Delivery</p>
+              <p style={{ margin: 0, color: "#64748b", fontSize: "0.9rem" }}>{t("orders.estimated_delivery")}</p>
               <p style={{ margin: "0.25rem 0 0 0", fontWeight: "600", color: "#1e293b" }}>
-                3 - 5 Business Days
+                {t("orders.business_days")}
               </p>
             </div>
           </div>
@@ -118,7 +120,7 @@ function OrderConfirmation() {
           onMouseEnter={(e) => e.currentTarget.style.background = "#e2e8f0"}
           onMouseLeave={(e) => e.currentTarget.style.background = "#f1f5f9"}
         >
-          📦 View My Orders
+          📦 {t("orders.view_my_orders")}
         </Link>
         
         <Link 
@@ -132,7 +134,7 @@ function OrderConfirmation() {
           onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-2px)"}
           onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
         >
-          🛍️ Continue Shopping
+          🛍️ {t("orders.continue_shopping")}
         </Link>
       </div>
     </div>

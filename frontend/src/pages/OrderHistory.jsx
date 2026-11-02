@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import API from "../api/axios";
 
 const OrderHistory = () => {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -24,14 +26,14 @@ const OrderHistory = () => {
   };
 
   const handleCancelOrder = async (orderId) => {
-    if (!window.confirm("Are you sure you want to cancel this order?")) return;
+    if (!window.confirm(t("orders.cancel_confirm"))) return;
     
     try {
       await API.put(`/orders/${orderId}/cancel`);
-      alert("Order cancelled successfully!");
+      alert(t("orders.cancelled_success"));
       fetchOrders(); // Refresh list
     } catch (error) {
-      alert(error.response?.data?.message || "Failed to cancel order");
+      alert(error.response?.data?.message || t("orders.cancel_failed"));
     }
   };
 
@@ -44,19 +46,19 @@ const OrderHistory = () => {
     }
   };
 
-  if (loading) return <div style={{ padding: "3rem", textAlign: "center", color: "#64748b" }}>Loading your orders... 🔄</div>;
+  if (loading) return <div style={{ padding: "3rem", textAlign: "center", color: "#64748b" }}>{t("orders.loading")} 🔄</div>;
 
   if (orders.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: "4rem", background: "#f8fafc", borderRadius: "12px", border: "2px dashed #e2e8f0" }}>
         <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>📦</div>
-        <h3 style={{ color: "#1e293b", marginBottom: "0.5rem" }}>No orders yet</h3>
-        <p style={{ color: "#64748b", marginBottom: "1.5rem" }}>Start shopping to see your orders here!</p>
+        <h3 style={{ color: "#1e293b", marginBottom: "0.5rem" }}>{t("profile.no_orders")}</h3>
+        <p style={{ color: "#64748b", marginBottom: "1.5rem" }}>{t("home.shop_now")}</p>
         <button 
           onClick={() => navigate("/products")}
           style={{ padding: "0.75rem 1.5rem", background: "#6366f1", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "600" }}
         >
-          Start Shopping
+          {t("home.shop_now")}
         </button>
       </div>
     );
@@ -65,7 +67,7 @@ const OrderHistory = () => {
   return (
     <div style={{ maxWidth: "900px", margin: "0 auto", padding: "2rem" }}>
       <h2 style={{ fontSize: "1.8rem", fontWeight: "700", color: "#1e293b", marginBottom: "2rem", display: "flex", alignItems: "center", gap: "0.75rem" }}>
-        📦 Order History <span style={{ fontSize: "0.9rem", fontWeight: "500", color: "#64748b", background: "#e2e8f0", padding: "0.25rem 0.75rem", borderRadius: "999px" }}>{orders.length}</span>
+        📦 {t("orders.history")} <span style={{ fontSize: "0.9rem", fontWeight: "500", color: "#64748b", background: "#e2e8f0", padding: "0.25rem 0.75rem", borderRadius: "999px" }}>{orders.length}</span>
       </h2>
 
       {orders.map((order) => (
@@ -73,15 +75,15 @@ const OrderHistory = () => {
           {/* Order Header */}
           <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #e2e8f0", paddingBottom: "1rem", marginBottom: "1rem" }}>
             <div>
-              <p style={{ fontSize: "0.85rem", color: "#64748b", margin: 0 }}>Order ID</p>
+              <p style={{ fontSize: "0.85rem", color: "#64748b", margin: 0 }}>{t("admin.order_id")}</p>
               <p style={{ fontFamily: "monospace", fontWeight: "700", color: "#1e293b", margin: "0.25rem 0 0 0" }}>#{order._id.toString().slice(-6).toUpperCase()}</p>
             </div>
             <div>
-              <p style={{ fontSize: "0.85rem", color: "#64748b", margin: 0 }}>Date</p>
-              <p style={{ fontWeight: "600", color: "#1e293b", margin: "0.25rem 0 0 0" }}>{new Date(order.createdAt).toLocaleDateString()}</p>
+              <p style={{ fontSize: "0.85rem", color: "#64748b", margin: 0 }}>{t("orders.date")}</p>
+              <p style={{ fontWeight: "600", color: "#1e293b", margin: "0.25rem 0 0 0" }}>{new Date(order.createdAt).toLocaleDateString(i18n.language)}</p>
             </div>
             <div>
-              <p style={{ fontSize: "0.85rem", color: "#64748b", margin: 0 }}>Total</p>
+              <p style={{ fontSize: "0.85rem", color: "#64748b", margin: 0 }}>{t("orders.total")}</p>
               <p style={{ fontWeight: "700", fontSize: "1.1rem", color: "#6366f1", margin: "0.25rem 0 0 0" }}>{order.totalPrice?.toLocaleString() || 0} ETB</p>
             </div>
             <span style={{ 
@@ -93,7 +95,7 @@ const OrderHistory = () => {
               background: getStatusColor(order.paymentStatus || order.status).split(" ")[0],
               color: getStatusColor(order.paymentStatus || order.status).split(" ")[1]
             }}>
-              {order.paymentStatus || order.status}
+              {t(`order_status.${order.paymentStatus || order.status}`, { defaultValue: order.paymentStatus || order.status })}
             </span>
           </div>
 
@@ -103,12 +105,12 @@ const OrderHistory = () => {
               <div key={idx} style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                 <img 
                   src={item.product?.image || item.image || "https://placehold.co/60"} 
-                  alt={item.product?.name || item.name || "Product"}
+                  alt={item.product?.name || item.name || t("products.all")}
                   style={{ width: "60px", height: "60px", objectFit: "cover", borderRadius: "8px", border: "1px solid #e2e8f0" }}
                 />
                 <div style={{ flex: 1 }}>
-                  <h4 style={{ fontWeight: "600", color: "#1e293b", margin: "0 0 0.25rem 0" }}>{item.product?.name || item.name || "Unknown Product"}</h4>
-                  <p style={{ fontSize: "0.9rem", color: "#64748b", margin: 0 }}>Qty: {item.quantity} × {(item.product?.price || item.price || 0).toLocaleString()} ETB</p>
+                  <h4 style={{ fontWeight: "600", color: "#1e293b", margin: "0 0 0.25rem 0" }}>{item.product?.name || item.name || t("profile.unknown_product")}</h4>
+                  <p style={{ fontSize: "0.9rem", color: "#64748b", margin: 0 }}>{t("profile.quantity")} {item.quantity} × {(item.product?.price || item.price || 0).toLocaleString(i18n.language)} ETB</p>
                 </div>
               </div>
             ))}
@@ -123,7 +125,7 @@ const OrderHistory = () => {
                 onMouseEnter={(e) => e.currentTarget.style.background = "#fee2e2"}
                 onMouseLeave={(e) => e.currentTarget.style.background = "#fef2f2"}
               >
-                Cancel Order
+                {t("orders.cancel")}
               </button>
             </div>
           )

@@ -1,11 +1,13 @@
 // ecommerce-app/src/pages/OrderDetail.jsx
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import API from "../api/axios";
 
 function OrderDetail({ addToCart }) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -19,16 +21,16 @@ function OrderDetail({ addToCart }) {
         setOrder(data);
       } catch (err) {
         console.error("Failed to fetch order:", err);
-        setError(err.response?.data?.message || "Failed to load order details");
+        setError(err.response?.data?.message || t("order_detail.load_failed"));
       } finally {
         setLoading(false);
       }
     };
     fetchOrder();
-  }, [id]);
+  }, [id, t]);
 
   const handleCancelOrder = async () => {
-    if (!window.confirm("Are you sure you want to cancel this order? This action cannot be undone.")) {
+    if (!window.confirm(t("order_detail.confirm_cancel"))) {
       return;
     }
     
@@ -36,9 +38,9 @@ function OrderDetail({ addToCart }) {
     try {
       const { data } = await API.put(`/orders/${id}/cancel`);
       setOrder(data.order); // Update local state with cancelled order
-      alert("✅ Order cancelled successfully. Stock has been restored.");
+      alert(t("order_detail.cancelled_success"));
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to cancel order");
+      alert(err.response?.data?.message || t("order_detail.cancel_failed"));
     } finally {
       setCancelling(false);
     }
@@ -65,9 +67,9 @@ function OrderDetail({ addToCart }) {
     window.print();
   };
 
-  if (loading) return <div style={{ textAlign: "center", padding: "4rem" }}>Loading order details... 🔄</div>;
+  if (loading) return <div style={{ textAlign: "center", padding: "4rem" }}>{t("order_detail.loading")} 🔄</div>;
   if (error) return <div style={{ textAlign: "center", padding: "4rem", color: "#ef4444" }}>❌ {error}</div>;
-  if (!order) return <div style={{ textAlign: "center", padding: "4rem" }}>Order not found.</div>;
+  if (!order) return <div style={{ textAlign: "center", padding: "4rem" }}>{t("order_detail.not_found")}</div>;
 
   // Status Timeline Steps
   const steps = ["pending_payment", "pending", "processing", "shipped", "delivered"];
@@ -88,10 +90,10 @@ function OrderDetail({ addToCart }) {
       {/* Header Actions (Hidden when printing) */}
       <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
         <Link to="/orders" style={{ color: "#6366f1", textDecoration: "none", fontWeight: "600", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          ← Back to My Orders
+          ← {t("order_detail.back")}
         </Link>
         <button onClick={handlePrint} style={{ padding: "0.6rem 1.2rem", background: "#f1f5f9", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "600", color: "#475569" }}>
-          🖨️ Print Invoice
+          🖨️ {t("order_detail.print")}
         </button>
       </div>
 
@@ -101,9 +103,9 @@ function OrderDetail({ addToCart }) {
         {/* Invoice Header */}
         <div style={{ padding: "2rem", borderBottom: "2px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: "1.8rem", color: "#1e293b" }}>Invoice #{order._id.slice(-6).toUpperCase()}</h1>
+            <h1 style={{ margin: 0, fontSize: "1.8rem", color: "#1e293b" }}>{t("order_detail.invoice")} #{order._id.slice(-6).toUpperCase()}</h1>
             <p style={{ margin: "0.5rem 0 0 0", color: "#64748b" }}>
-              Date: {new Date(order.createdAt).toLocaleDateString("en-ET", { year: "numeric", month: "long", day: "numeric" })}
+              {t("order_detail.date")}: {new Date(order.createdAt).toLocaleDateString(i18n.language, { year: "numeric", month: "long", day: "numeric" })}
             </p>
           </div>
           <div style={{ textAlign: "right" }}>
@@ -112,10 +114,10 @@ function OrderDetail({ addToCart }) {
               background: `${getStatusColor(order.status)}20`, color: getStatusColor(order.status),
               fontWeight: "700", fontSize: "0.9rem", textTransform: "capitalize"
             }}>
-              {order.status.replace("_", " ")}
+              {t(`order_status.${order.status}`, { defaultValue: order.status.replace("_", " ") })}
             </span>
             <p style={{ margin: "0.5rem 0 0 0", color: "#64748b", fontSize: "0.9rem" }}>
-              Payment: <strong style={{ color: order.paymentStatus === "paid" ? "#10b981" : "#f59e0b" }}>{order.paymentStatus.toUpperCase()}</strong>
+              {t("order_detail.payment")}: <strong style={{ color: order.paymentStatus === "paid" ? "#10b981" : "#f59e0b" }}>{t(`order_status.${order.paymentStatus}`, { defaultValue: order.paymentStatus.toUpperCase() })}</strong>
             </p>
           </div>
         </div>
@@ -123,7 +125,7 @@ function OrderDetail({ addToCart }) {
         <div style={{ padding: "2rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem" }}>
           {/* Customer Info */}
           <div>
-            <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Billed To</h3>
+            <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("order_detail.billed_to")}</h3>
             <p style={{ margin: 0, fontWeight: "700", fontSize: "1.1rem", color: "#1e293b" }}>{order.user?.name}</p>
             <p style={{ margin: "0.25rem 0", color: "#475569" }}>{order.user?.email}</p>
             <p style={{ margin: "0.25rem 0", color: "#475569" }}>{order.user?.phone}</p>
@@ -131,7 +133,7 @@ function OrderDetail({ addToCart }) {
 
           {/* Shipping Info */}
           <div>
-            <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Ship To</h3>
+            <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("order_detail.ship_to")}</h3>
             <p style={{ margin: 0, fontWeight: "700", fontSize: "1.1rem", color: "#1e293b" }}>{order.shippingAddress?.fullName}</p>
             <p style={{ margin: "0.25rem 0", color: "#475569" }}>{order.shippingAddress?.street}</p>
             <p style={{ margin: "0.25rem 0", color: "#475569" }}>{order.shippingAddress?.subcity}, {order.shippingAddress?.city}</p>
@@ -141,7 +143,7 @@ function OrderDetail({ addToCart }) {
         {/* Status Timeline (Hidden if cancelled) */}
         {order.status !== "cancelled" && (
           <div style={{ padding: "0 2rem 2rem 2rem" }}>
-            <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Order Status</h3>
+            <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("order_detail.status")}</h3>
             <div style={{ display: "flex", justifyContent: "space-between", position: "relative" }}>
               {/* Connecting Line */}
               <div style={{ position: "absolute", top: "15px", left: "0", right: "0", height: "3px", background: "#e2e8f0", zIndex: 0 }} />
@@ -164,7 +166,7 @@ function OrderDetail({ addToCart }) {
                       {isCompleted ? "✓" : index + 1}
                     </div>
                     <span style={{ fontSize: "0.8rem", fontWeight: isCurrent ? "700" : "500", color: isCompleted ? "#6366f1" : "#94a3b8", textTransform: "capitalize" }}>
-                      {step.replace("_", " ")}
+                      {t(`order_status.${step}`, { defaultValue: step.replace("_", " ") })}
                     </span>
                   </div>
                 );
@@ -175,15 +177,15 @@ function OrderDetail({ addToCart }) {
 
         {/* Products Table */}
         <div style={{ padding: "0 2rem 2rem 2rem" }}>
-          <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Items</h3>
+          <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("order_detail.items")}</h3>
           <div style={{ border: "1px solid #e2e8f0", borderRadius: "12px", overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
               <thead style={{ background: "#f8fafc" }}>
                 <tr>
-                  <th style={{ padding: "1rem", fontSize: "0.85rem", color: "#64748b", fontWeight: "600" }}>Product</th>
-                  <th style={{ padding: "1rem", fontSize: "0.85rem", color: "#64748b", fontWeight: "600", textAlign: "center" }}>Qty</th>
-                  <th style={{ padding: "1rem", fontSize: "0.85rem", color: "#64748b", fontWeight: "600", textAlign: "right" }}>Price</th>
-                  <th style={{ padding: "1rem", fontSize: "0.85rem", color: "#64748b", fontWeight: "600", textAlign: "right" }}>Total</th>
+                  <th style={{ padding: "1rem", fontSize: "0.85rem", color: "#64748b", fontWeight: "600" }}>{t("order_detail.product")}</th>
+                  <th style={{ padding: "1rem", fontSize: "0.85rem", color: "#64748b", fontWeight: "600", textAlign: "center" }}>{t("order_detail.qty")}</th>
+                  <th style={{ padding: "1rem", fontSize: "0.85rem", color: "#64748b", fontWeight: "600", textAlign: "right" }}>{t("order_detail.price")}</th>
+                  <th style={{ padding: "1rem", fontSize: "0.85rem", color: "#64748b", fontWeight: "600", textAlign: "right" }}>{t("order_detail.total")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -210,15 +212,15 @@ function OrderDetail({ addToCart }) {
         <div style={{ padding: "0 2rem 2rem 2rem", display: "flex", justifyContent: "flex-end" }}>
           <div style={{ width: "300px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", padding: "0.75rem 0", borderBottom: "1px solid #e2e8f0" }}>
-              <span style={{ color: "#64748b" }}>Subtotal</span>
+              <span style={{ color: "#64748b" }}>{t("order_detail.subtotal")}</span>
               <span style={{ fontWeight: "600", color: "#1e293b" }}>{order.totalPrice.toLocaleString()} ETB</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", padding: "0.75rem 0", borderBottom: "1px solid #e2e8f0" }}>
-              <span style={{ color: "#64748b" }}>Shipping</span>
-              <span style={{ fontWeight: "600", color: "#1e293b" }}>Included</span>
+              <span style={{ color: "#64748b" }}>{t("order_detail.shipping")}</span>
+              <span style={{ fontWeight: "600", color: "#1e293b" }}>{t("order_detail.included")}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", padding: "1rem 0", fontSize: "1.2rem" }}>
-              <span style={{ fontWeight: "800", color: "#1e293b" }}>Total</span>
+              <span style={{ fontWeight: "800", color: "#1e293b" }}>{t("order_detail.total")}</span>
               <span style={{ fontWeight: "800", color: "#10b981" }}>{order.totalPrice.toLocaleString()} ETB</span>
             </div>
           </div>
@@ -238,7 +240,7 @@ function OrderDetail({ addToCart }) {
                 fontWeight: "700", fontSize: "1rem", transition: "all 0.2s" 
               }}
             >
-              {cancelling ? "Cancelling..." : "❌ Cancel Order"}
+              {cancelling ? t("order_detail.cancelling") : `❌ ${t("order_detail.cancel")}`}
             </button>
           )}
 
@@ -253,7 +255,7 @@ function OrderDetail({ addToCart }) {
             onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-2px)"}
             onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
           >
-            🛒 Reorder All Items
+            🛒 {t("order_detail.reorder")}
           </button>
         </div>
       </div>

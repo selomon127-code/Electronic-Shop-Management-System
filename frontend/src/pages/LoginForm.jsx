@@ -25,7 +25,9 @@ function LoginForm({ onLogin }) {
   const [isLoading, setIsLoading] = useState(false);
 
   const googleErrorKey = new URLSearchParams(location.search).get("error");
-  const googleError = googleErrorKey ? GOOGLE_ERRORS[googleErrorKey] || t("common.error") : "";
+  const googleError = googleErrorKey === "recaptcha_required"
+    ? t("auth.recaptcha_required")
+    : googleErrorKey ? GOOGLE_ERRORS[googleErrorKey] || t("common.error") : "";
 
   useEffect(() => {
     if (location.state?.email) setEmail(location.state.email);
@@ -70,7 +72,7 @@ function LoginForm({ onLogin }) {
         <div className="auth-header">
           {/* ✅ UPDATED LOGO SECTION */}
           <img 
-            src="/logo.png" 
+            src="/electronic-shop-logo.svg" 
             alt="E-Shop Ethiopia Logo" 
             style={{ height: "64px", width: "auto", objectFit: "contain", marginBottom: "1rem" }} 
           />

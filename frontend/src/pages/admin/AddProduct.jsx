@@ -1,6 +1,7 @@
 // ecommerce-app/src/pages/admin/AddProduct.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import API from "../../api/axios";
 import { AdminStyles, Icon, PageHeader, useFeedback } from "./adminUi";
 
@@ -12,13 +13,18 @@ const CATEGORIES = [
   "Wearables",
   "Gaming",
   "Accessories",
+  "Camera",
+  "Phone",
+  "Laptop",
+  "Tablet",
+  "Electronics",
 ];
 
 const LANGUAGES = [
-  { field: "description", aiKey: "en", label: "English", placeholder: "Product description in English..." },
-  { field: "descriptionAm", aiKey: "am", label: "Amharic / አማርኛ", placeholder: "የምርቱ መግለጫ በአማርኛ..." },
-  { field: "descriptionOm", aiKey: "om", label: "Afaan Oromoo", placeholder: "Ibsa oomishaa Afaan Oromoon..." },
-  { field: "descriptionTi", aiKey: "ti", label: "Tigrinya / ትግርኛ", placeholder: "ገለጻ ምርቲ ብትግርኛ..." },
+  { field: "description", aiKey: "en", labelKey: "english", placeholderKey: "english_description_placeholder" },
+  { field: "descriptionAm", aiKey: "am", labelKey: "amharic", placeholder: "የምርቱ መግለጫ በአማርኛ..." },
+  { field: "descriptionOm", aiKey: "om", labelKey: "afaan_oromoo", placeholder: "Ibsa oomishaa Afaan Oromoon..." },
+  { field: "descriptionTi", aiKey: "ti", labelKey: "tigrinya", placeholder: "ገለጻ ምርቲ ብትግርኛ..." },
 ];
 
 const MAX_IMAGE_MB = 5;
@@ -35,6 +41,7 @@ const INITIAL_FORM = {
 };
 
 function AddProduct() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const redirectTimer = useRef(null);
   const { toast, confirm, ui } = useFeedback();
@@ -64,11 +71,11 @@ function AddProduct() {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      toast("error", "Please choose a valid image file.");
+      toast("error", t("admin.valid_image_required"));
       return;
     }
     if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
-      toast("error", `Image is too large. Maximum size is ${MAX_IMAGE_MB} MB.`);
+      toast("error", t("admin.image_too_large", { size: MAX_IMAGE_MB }));
       return;
     }
 
@@ -91,16 +98,16 @@ function AddProduct() {
   // ---------- AI generation ----------
   const handleAIGenerate = async () => {
     if (!formData.name.trim() || !formData.category) {
-      toast("error", "Enter the product name and category before generating.");
+      toast("error", t("admin.enter_product_category"));
       return;
     }
 
     const hasExistingText = LANGUAGES.some((l) => formData[l.field].trim());
     if (hasExistingText) {
       const ok = await confirm({
-        title: "Replace existing descriptions?",
-        message: "Generating will overwrite the descriptions you have already written.",
-        confirmLabel: "Replace",
+        title: t("admin.replace_descriptions_title"),
+        message: t("admin.replace_descriptions_message"),
+        confirmLabel: t("admin.replace"),
       });
       if (!ok) return;
     }
@@ -122,7 +129,7 @@ function AddProduct() {
         specs,
       });
 
-      if (!data?.success) throw new Error("Unexpected response from AI service");
+      if (!data?.success) throw new Error(t("admin.ai_unexpected_response"));
 
       setFormData((prev) => {
         const next = { ...prev };
@@ -135,13 +142,13 @@ function AddProduct() {
       toast(
         "success",
         data.fallbackUsed
-          ? "Descriptions generated locally (AI network unavailable). Please review before saving."
-          : "Descriptions generated in all 4 languages. Please review them before saving.",
+          ? t("admin.ai_fallback_generated")
+          : t("admin.ai_all_languages_generated"),
         6000
       );
     } catch (error) {
       console.error("AI Generation Error:", error);
-      toast("error", error.response?.data?.message || "Failed to generate descriptions. Please try again.");
+      toast("error", error.response?.data?.message || t("admin.failed_generate_descriptions"));
     } finally {
       setAiLoading(false);
     }
@@ -149,9 +156,9 @@ function AddProduct() {
 
   // ---------- submit ----------
   const validate = () => {
-    if (Number(formData.price) <= 0) return "Price must be greater than 0.";
+    if (Number(formData.price) <= 0) return t("admin.price_positive");
     if (!Number.isInteger(Number(formData.stock)) || Number(formData.stock) < 0) {
-      return "Stock must be a whole number (0 or more).";
+      return t("admin.stock_whole_number");
     }
     return "";
   };
@@ -183,11 +190,11 @@ function AddProduct() {
 
       await API.post("/admin/products", payload);
 
-      toast("success", "Product added successfully! Redirecting…");
+      toast("success", t("admin.product_added_redirecting"));
       redirectTimer.current = setTimeout(() => navigate("/admin/products"), 1200);
     } catch (error) {
       console.error("Add product error:", error);
-      toast("error", error.response?.data?.message || error.message || "Failed to add product.");
+      toast("error", error.response?.data?.message || error.message || t("admin.failed_add_product"));
       setLoading(false);
     }
   };
@@ -198,9 +205,9 @@ function AddProduct() {
     <div className="ad" style={{ maxWidth: 1100 }}>
       <AdminStyles />
 
-      <PageHeader title="Add product" subtitle="Create a new item in your catalog">
+      <PageHeader title={t("admin.add_product")} subtitle={t("admin.create_catalog_item")}>
         <button type="button" className="ad-btn" onClick={() => navigate("/admin/products")}>
-          <Icon name="arrowLeft" size={16} /> Back to products
+          <Icon name="arrowLeft" size={16} /> {t("admin.back_to_products")}
         </button>
       </PageHeader>
 
@@ -209,58 +216,58 @@ function AddProduct() {
           {/* ---------- Left column ---------- */}
           <div className="ad-stack">
             <div className="ad-card ad-panel">
-              <h3 className="ad-panel-title">Basic information</h3>
+              <h3 className="ad-panel-title">{t("admin.basic_information")}</h3>
 
               <div className="ad-field">
-                <label htmlFor="name" className="ad-label">Product name *</label>
+                <label htmlFor="name" className="ad-label">{t("admin.product_name")} *</label>
                 <input id="name" className="ad-input" type="text" name="name" required
-                  value={formData.name} onChange={handleChange} placeholder="e.g., iPhone 15 Pro Max" />
+                  value={formData.name} onChange={handleChange} placeholder={t("admin.product_name_example")} />
               </div>
 
               <div className="ad-grid3" style={{ marginBottom: 0 }}>
                 <div className="ad-field" style={{ marginBottom: 0 }}>
-                  <label htmlFor="category" className="ad-label">Category *</label>
+                  <label htmlFor="category" className="ad-label">{t("admin.category")} *</label>
                   <select id="category" className="ad-input" name="category" required
                     value={formData.category} onChange={handleChange}>
-                    <option value="">Select category</option>
-                    {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    <option value="">{t("admin.select_category")}</option>
+                    {CATEGORIES.map((c) => <option key={c} value={c}>{t(`admin.category_${c.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")}`, { defaultValue: c })}</option>)}
                   </select>
                 </div>
                 <div className="ad-field" style={{ marginBottom: 0 }}>
-                  <label htmlFor="price" className="ad-label">Price (ETB) *</label>
+                  <label htmlFor="price" className="ad-label">{t("admin.price_etb")} *</label>
                   <input id="price" className="ad-input" type="number" name="price" required min="1" step="any"
-                    value={formData.price} onChange={handleChange} placeholder="e.g., 85000" />
+                    value={formData.price} onChange={handleChange} placeholder={t("admin.price_example")} />
                 </div>
                 <div className="ad-field" style={{ marginBottom: 0 }}>
-                  <label htmlFor="stock" className="ad-label">Stock *</label>
+                  <label htmlFor="stock" className="ad-label">{t("admin.stock")} *</label>
                   <input id="stock" className="ad-input" type="number" name="stock" required min="0" step="1"
-                    value={formData.stock} onChange={handleChange} placeholder="e.g., 50" />
+                    value={formData.stock} onChange={handleChange} placeholder={t("admin.stock_example")} />
                 </div>
               </div>
             </div>
 
             <div className="ad-card ad-panel">
-              <h3 className="ad-panel-title">Descriptions</h3>
+              <h3 className="ad-panel-title">{t("admin.descriptions")}</h3>
 
               <div className="ad-ai">
                 <div>
-                  <b>AI description generator</b>
-                  <p>Fills in English, Amharic, Afaan Oromoo and Tigrinya from the name and category.</p>
+                  <b>{t("admin.ai_description_generator")}</b>
+                  <p>{t("admin.ai_description_help")}</p>
                 </div>
                 <button type="button" className="ad-btn ai" onClick={handleAIGenerate} disabled={busy}>
                   {aiLoading ? (
-                    <><span className="ad-spin"><Icon name="refresh" size={16} /></span> Generating…</>
+                    <><span className="ad-spin"><Icon name="refresh" size={16} /></span> {t("admin.generating")}</>
                   ) : (
-                    <><Icon name="sparkles" size={16} /> Generate with AI</>
+                    <><Icon name="sparkles" size={16} /> {t("admin.generate_with_ai")}</>
                   )}
                 </button>
               </div>
 
-              {LANGUAGES.map(({ field, label, placeholder }, i) => (
+              {LANGUAGES.map(({ field, labelKey, placeholder, placeholderKey }, i) => (
                 <div key={field} className="ad-field" style={i === LANGUAGES.length - 1 ? { marginBottom: 0 } : undefined}>
-                  <label htmlFor={field} className="ad-label">{label} *</label>
+                  <label htmlFor={field} className="ad-label">{t(`admin.${labelKey}`)} *</label>
                   <textarea id={field} name={field} className="ad-input" required rows={3}
-                    value={formData[field]} onChange={handleChange} placeholder={placeholder} />
+                    value={formData[field]} onChange={handleChange} placeholder={placeholderKey ? t(`admin.${placeholderKey}`) : placeholder} />
                 </div>
               ))}
             </div>
@@ -270,14 +277,14 @@ function AddProduct() {
           <div className="ad-stack ad-sticky">
             <div className="ad-card ad-panel">
               <h3 className="ad-panel-title">
-                Product image <span className="ad-muted ad-small" style={{ fontWeight: 400 }}>max {MAX_IMAGE_MB} MB</span>
+                {t("admin.product_image")} <span className="ad-muted ad-small" style={{ fontWeight: 400 }}>{t("admin.max_image_size", { size: MAX_IMAGE_MB })}</span>
               </h3>
 
               {imageBase64 ? (
                 <div className="ad-preview">
-                  <img src={imageBase64} alt="Product preview" />
+                  <img src={imageBase64} alt={t("admin.product_preview")} />
                   <button type="button" className="ad-btn sm" onClick={() => setImageBase64(null)}>
-                    <Icon name="trash" size={14} /> Remove
+                    <Icon name="trash" size={14} /> {t("admin.remove")}
                   </button>
                 </div>
               ) : (
@@ -290,8 +297,8 @@ function AddProduct() {
                     onDrop={handleDrop}
                   >
                     <Icon name="upload" size={26} />
-                    <span><b>Click to upload</b> or drag and drop</span>
-                    <span className="ad-small">PNG, JPG or WebP</span>
+                    <span><b>{t("admin.click_to_upload")}</b> {t("admin.or_drag_drop")}</span>
+                    <span className="ad-small">{t("admin.image_formats")}</span>
                   </label>
                   <input id="image" className="ad-vh" type="file" accept="image/*" onChange={handleImageChange} />
                 </>
@@ -300,11 +307,11 @@ function AddProduct() {
 
             <div className="ad-card ad-panel">
               <button type="submit" className="ad-btn primary block" disabled={busy}>
-                {loading ? "Adding product…" : (<><Icon name="check" size={16} /> Add product</>)}
+                {loading ? t("admin.adding_product") : (<><Icon name="check" size={16} /> {t("admin.add_product")}</>)}
               </button>
               <button type="button" className="ad-btn block" style={{ marginTop: ".6rem" }}
                 onClick={() => navigate("/admin/products")} disabled={loading}>
-                Cancel
+                {t("admin.cancel")}
               </button>
             </div>
           </div>

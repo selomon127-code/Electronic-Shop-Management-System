@@ -1,5 +1,6 @@
 // ecommerce-app/src/pages/admin/Dashboard.jsx
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { adminApi } from "../../api/adminApi";
 
 /* ----------------------------- Helpers ----------------------------- */
@@ -167,16 +168,18 @@ function KpiCard({ label, value, icon, color, bg }) {
 }
 
 function StatusBadge({ status }) {
+  const { t } = useTranslation();
   const m = STATUS_META[status] || FALLBACK_META;
   return (
     <span className="db-badge" style={{ background: m.bg, color: m.fg }}>
       <i />
-      {m.label || status || "—"}
+      {m.label ? t(`admin.status_${status}`, { defaultValue: m.label }) : status || "—"}
     </span>
   );
 }
 
 function PaymentBadge({ status }) {
+  const { t } = useTranslation();
   const paid = status === "paid";
   return (
     <span
@@ -184,12 +187,13 @@ function PaymentBadge({ status }) {
       style={{ background: paid ? "#d1fae5" : "#fef3c7", color: paid ? "#065f46" : "#92400e" }}
     >
       <i />
-      {paid ? "Paid" : status ? status.charAt(0).toUpperCase() + status.slice(1) : "Unpaid"}
+      {paid ? t("admin.paid") : status ? t(`admin.payment_${status}`, { defaultValue: status.charAt(0).toUpperCase() + status.slice(1) }) : t("admin.unpaid")}
     </span>
   );
 }
 
 function StatusDonut({ ordersByStatus }) {
+  const { t } = useTranslation();
   const entries = Object.entries(ordersByStatus || {});
   const total = entries.reduce((s, [, c]) => s + (Number(c) || 0), 0);
   const R = 62;
@@ -206,7 +210,7 @@ function StatusDonut({ ordersByStatus }) {
   return (
     <div className="db-donut-wrap">
       <div className="db-donut">
-        <svg viewBox="0 0 170 170" width="170" height="170" role="img" aria-label="Orders by status">
+        <svg viewBox="0 0 170 170" width="170" height="170" role="img" aria-label={t("admin.orders_by_status")}>
           <g transform="rotate(-90 85 85)">
             <circle cx="85" cy="85" r={R} fill="none" stroke="#f1f5f9" strokeWidth="16" />
             {total > 0 &&
@@ -227,7 +231,7 @@ function StatusDonut({ ordersByStatus }) {
         </svg>
         <div className="db-donut-center">
           <b>{num(total)}</b>
-          <span>Total orders</span>
+          <span>{t("admin.total_orders")}</span>
         </div>
       </div>
 
@@ -252,7 +256,7 @@ function StatusDonut({ ordersByStatus }) {
             </div>
           );
         })}
-        {segments.length === 0 && <div className="db-empty">No order data</div>}
+        {segments.length === 0 && <div className="db-empty">{t("admin.no_order_data")}</div>}
       </div>
     </div>
   );
@@ -281,6 +285,7 @@ function DashboardSkeleton() {
 /* ------------------------------ Main ------------------------------- */
 
 function Dashboard() {
+  const { t, i18n } = useTranslation();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -295,12 +300,12 @@ function Dashboard() {
       setData(data);
       setUpdatedAt(new Date());
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to load dashboard");
+      setError(err.response?.data?.message || t("admin.failed_load_dashboard"));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchDashboard();
@@ -309,16 +314,16 @@ function Dashboard() {
   const statCards = useMemo(() => {
     const s = data?.stats || {};
     return [
-      { label: "Total Revenue", value: money(s.totalRevenue), icon: "revenue", color: "#059669", bg: "#d1fae5" },
-      { label: "Total Orders", value: num(s.totalOrders), icon: "orders", color: "#4f46e5", bg: "#e0e7ff" },
-      { label: "Today's Revenue", value: money(s.todayRevenue), icon: "trend", color: "#2563eb", bg: "#dbeafe" },
-      { label: "Today's Orders", value: num(s.todayOrders), icon: "calendar", color: "#d97706", bg: "#fef3c7" },
-      { label: "Pending Payment", value: money(s.pendingRevenue), icon: "clock", color: "#dc2626", bg: "#fee2e2" },
-      { label: "Total Users", value: num(s.totalUsers), icon: "users", color: "#7c3aed", bg: "#ede9fe" },
-      { label: "Total Products", value: num(s.totalProducts), icon: "products", color: "#db2777", bg: "#fce7f3" },
-      { label: "Admins", value: num(s.totalAdmins), icon: "shield", color: "#0d9488", bg: "#ccfbf1" },
+      { label: t("admin.total_revenue"), value: money(s.totalRevenue), icon: "revenue", color: "#059669", bg: "#d1fae5" },
+      { label: t("admin.total_orders"), value: num(s.totalOrders), icon: "orders", color: "#4f46e5", bg: "#e0e7ff" },
+      { label: t("admin.today_revenue"), value: money(s.todayRevenue), icon: "trend", color: "#2563eb", bg: "#dbeafe" },
+      { label: t("admin.today_orders"), value: num(s.todayOrders), icon: "calendar", color: "#d97706", bg: "#fef3c7" },
+      { label: t("admin.pending_payment"), value: money(s.pendingRevenue), icon: "clock", color: "#dc2626", bg: "#fee2e2" },
+      { label: t("admin.total_users"), value: num(s.totalUsers), icon: "users", color: "#7c3aed", bg: "#ede9fe" },
+      { label: t("admin.total_products"), value: num(s.totalProducts), icon: "products", color: "#db2777", bg: "#fce7f3" },
+      { label: t("admin.admins"), value: num(s.totalAdmins), icon: "shield", color: "#0d9488", bg: "#ccfbf1" },
     ];
-  }, [data]);
+  }, [data, t]);
 
   if (loading) return <DashboardSkeleton />;
 
@@ -330,7 +335,7 @@ function Dashboard() {
           <Icon d={ICONS.alert} size={22} />
           <span>{error}</span>
           <button className="db-btn" onClick={() => fetchDashboard()}>
-            <Icon d={ICONS.refresh} size={16} /> Retry
+            <Icon d={ICONS.refresh} size={16} /> {t("admin.retry")}
           </button>
         </div>
       </div>
@@ -340,13 +345,14 @@ function Dashboard() {
   const { ordersByStatus, recentOrders = [] } = data || {};
 
   const quickActions = [
-    { href: "/admin/orders", label: "View all orders", icon: "orders", color: "#4f46e5", bg: "#e0e7ff" },
-    { href: "/admin/products", label: "Manage products", icon: "products", color: "#db2777", bg: "#fce7f3" },
-    { href: "/admin/users", label: "Manage users", icon: "users", color: "#7c3aed", bg: "#ede9fe" },
-    { href: "/", label: "View storefront", icon: "store", color: "#0d9488", bg: "#ccfbf1" },
+    { href: "/admin/orders", label: t("admin.view_all_orders"), icon: "orders", color: "#4f46e5", bg: "#e0e7ff" },
+    { href: "/admin/products", label: t("admin.manage_products"), icon: "products", color: "#db2777", bg: "#fce7f3" },
+    { href: "/admin/users", label: t("admin.manage_users"), icon: "users", color: "#7c3aed", bg: "#ede9fe" },
+    { href: "/", label: t("admin.view_storefront"), icon: "store", color: "#0d9488", bg: "#ccfbf1" },
   ];
 
-  const today = new Date().toLocaleDateString("en-GB", {
+  const dateLocales = { en: "en-GB", am: "am-ET", om: "om-ET", ti: "ti-ER" };
+  const today = new Date().toLocaleDateString(dateLocales[i18n.language] || "en-GB", {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -360,18 +366,18 @@ function Dashboard() {
       {/* Header */}
       <div className="db-head">
         <div>
-          <h1 className="db-title">Dashboard</h1>
+          <h1 className="db-title">{t("admin.dashboard")}</h1>
           <p className="db-sub">
             {today}
             {updatedAt &&
-              ` · Updated ${updatedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`}
+              ` · ${t("admin.updated", { time: updatedAt.toLocaleTimeString(dateLocales[i18n.language] || "en-GB", { hour: "2-digit", minute: "2-digit" }) })}`}
           </p>
         </div>
         <button className="db-btn" onClick={() => fetchDashboard(true)} disabled={refreshing}>
           <span className={refreshing ? "db-spin" : ""} style={{ display: "inline-flex" }}>
             <Icon d={ICONS.refresh} size={16} />
           </span>
-          {refreshing ? "Refreshing…" : "Refresh"}
+          {refreshing ? t("admin.refreshing") : t("admin.refresh")}
         </button>
       </div>
 
@@ -393,14 +399,14 @@ function Dashboard() {
       <div className="db-row">
         <div className="db-card db-panel">
           <div className="db-panel-head">
-            <h3 className="db-panel-title">Orders by status</h3>
+            <h3 className="db-panel-title">{t("admin.orders_by_status")}</h3>
           </div>
           <StatusDonut ordersByStatus={ordersByStatus} />
         </div>
 
         <div className="db-card db-panel">
           <div className="db-panel-head">
-            <h3 className="db-panel-title">Quick actions</h3>
+            <h3 className="db-panel-title">{t("admin.quick_actions")}</h3>
           </div>
           <div className="db-actions">
             {quickActions.map((a) => (
@@ -421,30 +427,30 @@ function Dashboard() {
       {/* Recent orders */}
       <div className="db-card db-panel">
         <div className="db-panel-head">
-          <h3 className="db-panel-title">Recent orders</h3>
+          <h3 className="db-panel-title">{t("admin.recent_orders")}</h3>
           <a href="/admin/orders" className="db-link">
-            View all <Icon d={ICONS.arrow} size={14} />
+            {t("admin.view_all")} <Icon d={ICONS.arrow} size={14} />
           </a>
         </div>
 
         {recentOrders.length === 0 ? (
-          <div className="db-empty">No orders yet</div>
+          <div className="db-empty">{t("admin.no_orders_yet")}</div>
         ) : (
           <div className="db-table-wrap">
             <table className="db-table">
               <thead>
                 <tr>
-                  <th>Order</th>
-                  <th>Customer</th>
-                  <th>Total</th>
-                  <th>Status</th>
-                  <th>Payment</th>
-                  <th>Date</th>
+                  <th>{t("admin.order")}</th>
+                  <th>{t("admin.customer")}</th>
+                  <th>{t("admin.total")}</th>
+                  <th>{t("admin.status")}</th>
+                  <th>{t("admin.payment")}</th>
+                  <th>{t("admin.date")}</th>
                 </tr>
               </thead>
               <tbody>
                 {recentOrders.map((order) => {
-                  const name = order.user?.name || "Guest";
+                  const name = order.user?.name || t("admin.guest");
                   return (
                     <tr key={order._id}>
                       <td>

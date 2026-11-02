@@ -120,7 +120,7 @@ function Signup() {
         <div className="auth-header">
           {/* ✅ UPDATED LOGO SECTION */}
           <img 
-            src="/logo.png" 
+            src="/electronic-shop-logo.svg" 
             alt="E-Shop Ethiopia Logo" 
             style={{ height: "64px", width: "auto", objectFit: "contain", marginBottom: "1rem" }} 
           />

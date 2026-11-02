@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { profileApi } from "../api/adminApi";
 import { useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 const PLACEHOLDER = "https://placehold.co/80x80/e2e8f0/64748b?text=No+Img";
 
@@ -18,10 +19,10 @@ const EMPTY_ADDRESS = {
 };
 
 const TABS = [
-  { id: "profile", label: "Profile", icon: "👤" },
-  { id: "password", label: "Password", icon: "🔐" },
-  { id: "orders", label: "Orders", icon: "📦" },
-  { id: "addresses", label: "Addresses", icon: "📍" },
+  { id: "profile", labelKey: "nav.profile", icon: "👤" },
+  { id: "password", labelKey: "nav.change_password", icon: "🔐" },
+  { id: "orders", labelKey: "nav.orders", icon: "📦" },
+  { id: "addresses", labelKey: "nav.saved_addresses", icon: "📍" },
 ];
 
 const ORDER_STATUS = {
@@ -68,6 +69,7 @@ function PasswordInput({ value, onChange, minLength, required = true }) {
 }
 
 function Profile({ onUserUpdate }) {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const urlTab = searchParams.get("tab") || "profile";
 
@@ -166,9 +168,9 @@ function Profile({ onUserUpdate }) {
       if (onUserUpdate) onUserUpdate(data.user);
       const stored = JSON.parse(localStorage.getItem("user") || "{}");
       localStorage.setItem("user", JSON.stringify({ ...stored, ...data.user }));
-      showToast("Profile updated successfully!");
+      showToast(t("common.success"));
     } catch (err) {
-      showToast("Failed: " + (err.response?.data?.message || err.message), "error");
+      showToast(`${t("common.error")}: ${err.response?.data?.message || err.message}`, "error");
     } finally {
       setSaving(null);
     }
@@ -177,7 +179,7 @@ function Profile({ onUserUpdate }) {
   const handlePasswordChange = async (e) => {
     e.preventDefault();
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      showToast("New passwords do not match", "error");
+      showToast(t("auth.password_mismatch"), "error");
       return;
     }
     try {
@@ -186,10 +188,10 @@ function Profile({ onUserUpdate }) {
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
       });
-      showToast("Password changed successfully!");
+      showToast(t("common.success"));
       setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
     } catch (err) {
-      showToast("Failed: " + (err.response?.data?.message || err.message), "error");
+      showToast(`${t("common.error")}: ${err.response?.data?.message || err.message}`, "error");
     } finally {
       setSaving(null);
     }
@@ -207,15 +209,15 @@ function Profile({ onUserUpdate }) {
       if (editingAddressId) {
         const { data } = await profileApi.updateAddress(editingAddressId, addressForm);
         setAddresses(data.addresses);
-        showToast("Address updated!");
+        showToast(t("common.success"));
       } else {
         const { data } = await profileApi.addAddress(addressForm);
         setAddresses(data.addresses);
-        showToast("Address added!");
+        showToast(t("common.success"));
       }
       resetAddressForm();
     } catch (err) {
-      showToast("Failed: " + (err.response?.data?.message || err.message), "error");
+      showToast(`${t("common.error")}: ${err.response?.data?.message || err.message}`, "error");
     } finally {
       setSaving(null);
     }
@@ -243,9 +245,9 @@ function Profile({ onUserUpdate }) {
       const { data } = await profileApi.deleteAddress(id);
       setAddresses(data.addresses);
       if (editingAddressId === id) resetAddressForm();
-      showToast("Address deleted");
+      showToast(t("common.success"));
     } catch (err) {
-      showToast("Failed: " + (err.response?.data?.message || err.message), "error");
+      showToast(`${t("common.error")}: ${err.response?.data?.message || err.message}`, "error");
     }
   };
 
@@ -324,7 +326,7 @@ function Profile({ onUserUpdate }) {
               className={`pf-tab ${activeTab === tab.id ? "active" : ""}`}
               onClick={() => changeTab(tab.id)}
             >
-              <span>{tab.icon}</span> {tab.label}
+              <span>{tab.icon}</span> {t(tab.labelKey)}
             </button>
           ))}
         </div>
@@ -333,10 +335,10 @@ function Profile({ onUserUpdate }) {
           {/* ================= PROFILE TAB ================= */}
           {activeTab === "profile" && (
             <div>
-              <h2 className="pf-title">Edit Profile</h2>
-              <p className="pf-sub">Keep your personal details up to date.</p>
+              <h2 className="pf-title">{t("profile.edit_details")}</h2>
+              <p className="pf-sub">{t("profile.keep_details_updated")}</p>
               <form onSubmit={handleProfileUpdate} className="pf-form">
-                <Field label="Full Name">
+                <Field label={t("auth.full_name")}>
                   <input
                     type="text"
                     className="pf-input"
@@ -345,10 +347,10 @@ function Profile({ onUserUpdate }) {
                     required
                   />
                 </Field>
-                <Field label="Email" hint="🔒 Email cannot be changed">
+                <Field label={t("auth.email")} hint={`🔒 ${t("profile.email_locked")}`}>
                   <input type="email" className="pf-input" value={profile?.email || ""} disabled />
                 </Field>
-                <Field label="Phone Number">
+                <Field label={t("auth.phone")}>
                   <input
                     type="tel"
                     className="pf-input"
@@ -358,7 +360,7 @@ function Profile({ onUserUpdate }) {
                   />
                 </Field>
                 <button type="submit" className="pf-btn pf-btn-primary" disabled={saving === "profile"}>
-                  {saving === "profile" ? <span className="pf-spin" /> : "💾"} Save Changes
+                  {saving === "profile" ? <span className="pf-spin" /> : "💾"} {t("profile.save_changes")}
                 </button>
               </form>
             </div>
@@ -367,22 +369,22 @@ function Profile({ onUserUpdate }) {
           {/* ================= PASSWORD TAB ================= */}
           {activeTab === "password" && (
             <div>
-              <h2 className="pf-title">Change Password</h2>
-              <p className="pf-sub">Use a strong password you don't use anywhere else.</p>
+              <h2 className="pf-title">{t("nav.change_password")}</h2>
+              <p className="pf-sub">{t("profile.password_hint")}</p>
               {profile?.authProvider === "google" ? (
                 <div className="pf-notice">
                   ⚠️ You signed up with Google. Password changes must be made through your Google account.
                 </div>
               ) : (
                 <form onSubmit={handlePasswordChange} className="pf-form">
-                  <Field label="Current Password">
+                  <Field label={t("profile.current_password")}>
                     <PasswordInput
                       value={passwordForm.currentPassword}
                       onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
                     />
                   </Field>
 
-                  <Field label="New Password (min 6 characters)">
+                  <Field label={t("profile.new_password")}>
                     <PasswordInput
                       value={passwordForm.newPassword}
                       minLength={6}
@@ -400,7 +402,7 @@ function Profile({ onUserUpdate }) {
                     )}
                   </Field>
 
-                  <Field label="Confirm New Password">
+                  <Field label={t("profile.confirm_password")}>
                     <PasswordInput
                       value={passwordForm.confirmPassword}
                       minLength={6}
@@ -421,8 +423,8 @@ function Profile({ onUserUpdate }) {
           {/* ================= ORDERS TAB ================= */}
           {activeTab === "orders" && (
             <div>
-              <h2 className="pf-title">📦 Order History <span className="pf-count">{orders.length}</span></h2>
-              <p className="pf-sub">Track and review everything you've ordered.</p>
+              <h2 className="pf-title">📦 {t("nav.orders")} <span className="pf-count">{orders.length}</span></h2>
+              <p className="pf-sub">{t("profile.orders_hint")}</p>
 
               {ordersLoading && orders.length === 0 ? (
                 <div className="pf-list">
@@ -437,7 +439,7 @@ function Profile({ onUserUpdate }) {
               ) : orders.length === 0 ? (
                 <div className="pf-empty">
                   <div className="pf-empty-icon">📦</div>
-                  <p>No orders yet</p>
+                  <p>{t("profile.no_orders")}</p>
                 </div>
               ) : (
                 <div className="pf-list">
@@ -448,15 +450,15 @@ function Profile({ onUserUpdate }) {
                       <article key={order._id} className="pf-order" style={{ animationDelay: `${Math.min(idx, 8) * 70}ms` }}>
                         <div className="pf-order-head">
                           <div>
-                            <div className="pf-order-id">Order #{order._id.slice(-6).toUpperCase()}</div>
+                            <div className="pf-order-id">{t("admin.order_id")} #{order._id.slice(-6).toUpperCase()}</div>
                             <div className="pf-order-date">📅 {formatDate(order.createdAt)}</div>
                           </div>
                           <div className="pf-badges">
                             <span className={`pf-badge ${st.cls}`}>
-                              {st.icon} <span style={{ textTransform: "capitalize" }}>{order.status}</span>
+                              {st.icon} <span style={{ textTransform: "capitalize" }}>{t(`order_status.${order.status}`, { defaultValue: order.status })}</span>
                             </span>
                             <span className={`pf-badge ${pay.cls}`}>
-                              {pay.icon} <span style={{ textTransform: "capitalize" }}>{order.paymentStatus}</span>
+                              {pay.icon} <span style={{ textTransform: "capitalize" }}>{t(`order_status.${order.paymentStatus}`, { defaultValue: order.paymentStatus })}</span>
                             </span>
                           </div>
                         </div>
@@ -468,32 +470,32 @@ function Profile({ onUserUpdate }) {
                                 <>
                                   <img
                                     src={item.product.image || PLACEHOLDER}
-                                    alt={item.product.name || "Product"}
+                                    alt={item.product.name || t("products.all")}
                                     onError={(e) => {
                                       e.target.onerror = null;
                                       e.target.src = PLACEHOLDER;
                                     }}
                                   />
                                   <div className="pf-item-info">
-                                    <strong>{item.product.name || "Unknown Product"}</strong>
+                                    <strong>{item.product.name || t("profile.unknown_product")}</strong>
                                     <span>
-                                      Qty: {item.quantity} × {item.price?.toFixed(2)} ETB
+                                      {t("profile.quantity")} {item.quantity} × {item.price?.toFixed(2)} ETB
                                     </span>
                                   </div>
                                   <div className="pf-item-total">{(item.quantity * item.price).toFixed(2)} ETB</div>
                                 </>
                               ) : (
-                                <div className="pf-removed">🗑️ Product removed from catalog</div>
+                                <div className="pf-removed">🗑️ {t("profile.removed_product")}</div>
                               )}
                             </div>
                           ))}
                           {order.products?.length > 3 && (
-                            <div className="pf-more">+{order.products.length - 3} more item(s)</div>
+                            <div className="pf-more">+{order.products.length - 3} {t("profile.more_items")}</div>
                           )}
                         </div>
 
                         <div className="pf-order-total">
-                          <span>💰 Total Amount</span>
+                          <span>💰 {t("profile.total_amount")}</span>
                           <strong>{order.totalPrice?.toFixed(2)} ETB</strong>
                         </div>
                       </article>
@@ -507,26 +509,26 @@ function Profile({ onUserUpdate }) {
           {/* ================= ADDRESSES TAB ================= */}
           {activeTab === "addresses" && (
             <div>
-              <h2 className="pf-title">📍 Saved Addresses <span className="pf-count">{addresses.length}</span></h2>
-              <p className="pf-sub">Save your delivery addresses for faster checkout.</p>
+              <h2 className="pf-title">📍 {t("nav.saved_addresses")} <span className="pf-count">{addresses.length}</span></h2>
+              <p className="pf-sub">{t("profile.addresses_hint")}</p>
 
               {/* Form */}
               <div className={`pf-addr-form ${editingAddressId ? "editing" : ""}`} ref={formRef}>
-                <h3>{editingAddressId ? "✏️ Edit Address" : "➕ Add New Address"}</h3>
+                <h3>{editingAddressId ? `✏️ ${t("profile.edit_address")}` : `➕ ${t("profile.add_new_address")}`}</h3>
                 <form onSubmit={handleAddressSubmit}>
                   <div className="pf-grid">
-                    <Field label="Label">
+                    <Field label={t("profile.label")}>
                       <select
                         className="pf-input"
                         value={addressForm.label}
                         onChange={(e) => setAddressForm({ ...addressForm, label: e.target.value })}
                       >
-                        <option value="Home">🏠 Home</option>
-                        <option value="Work">💼 Work</option>
-                        <option value="Other">📍 Other</option>
+                        <option value="Home">🏠 {t("profile.home")}</option>
+                        <option value="Work">💼 {t("profile.work")}</option>
+                        <option value="Other">📍 {t("profile.other")}</option>
                       </select>
                     </Field>
-                    <Field label="Phone">
+                    <Field label={t("auth.phone")}>
                       <input
                         type="tel"
                         className="pf-input"
@@ -537,7 +539,7 @@ function Profile({ onUserUpdate }) {
                     </Field>
                   </div>
 
-                  <Field label="Street Address *">
+                  <Field label={`${t("profile.street_address")} *`}>
                     <input
                       type="text"
                       className="pf-input"
@@ -549,7 +551,7 @@ function Profile({ onUserUpdate }) {
                   </Field>
 
                   <div className="pf-grid">
-                    <Field label="City *">
+                    <Field label={`${t("checkout.city")} *`}>
                       <input
                         type="text"
                         className="pf-input"
@@ -559,7 +561,7 @@ function Profile({ onUserUpdate }) {
                         placeholder="Addis Ababa"
                       />
                     </Field>
-                    <Field label="Subcity">
+                    <Field label={t("checkout.subcity")}>
                       <input
                         type="text"
                         className="pf-input"
@@ -571,7 +573,7 @@ function Profile({ onUserUpdate }) {
                   </div>
 
                   <div className="pf-grid">
-                    <Field label="Region">
+                    <Field label={t("profile.region")}>
                       <input
                         type="text"
                         className="pf-input"
@@ -580,7 +582,7 @@ function Profile({ onUserUpdate }) {
                         placeholder="Addis Ababa"
                       />
                     </Field>
-                    <Field label="ZIP Code">
+                    <Field label={t("profile.zip_code")}>
                       <input
                         type="text"
                         className="pf-input"
@@ -598,17 +600,17 @@ function Profile({ onUserUpdate }) {
                       onChange={(e) => setAddressForm({ ...addressForm, isDefault: e.target.checked })}
                     />
                     <span className="pf-slider" />
-                    Set as default address
+                    {t("profile.default_address")}
                   </label>
 
                   <div className="pf-row-btns">
                     <button type="submit" className="pf-btn pf-btn-primary" disabled={saving === "address"}>
                       {saving === "address" ? <span className="pf-spin" /> : editingAddressId ? "💾" : "➕"}{" "}
-                      {editingAddressId ? "Update Address" : "Add Address"}
+                      {editingAddressId ? t("profile.update_address") : t("profile.add_address")}
                     </button>
                     {editingAddressId && (
                       <button type="button" className="pf-btn pf-btn-light" onClick={resetAddressForm}>
-                        Cancel
+                        {t("wishlist.cancel")}
                       </button>
                     )}
                   </div>
@@ -629,7 +631,7 @@ function Profile({ onUserUpdate }) {
               ) : addresses.length === 0 ? (
                 <div className="pf-empty">
                   <div className="pf-empty-icon">📍</div>
-                  <p>No saved addresses yet</p>
+                  <p>{t("profile.no_addresses")}</p>
                 </div>
               ) : (
                 <div className="pf-addr-grid">
@@ -639,7 +641,7 @@ function Profile({ onUserUpdate }) {
                       className={`pf-addr ${addr.isDefault ? "default" : ""}`}
                       style={{ animationDelay: `${Math.min(idx, 8) * 70}ms` }}
                     >
-                      {addr.isDefault && <span className="pf-default">✓ Default</span>}
+                      {addr.isDefault && <span className="pf-default">✓ {t("profile.default_address")}</span>}
                       <div className="pf-addr-label">
                         <span>{addr.label === "Home" ? "🏠" : addr.label === "Work" ? "💼" : "📍"}</span>
                         <strong>{addr.label}</strong>
@@ -658,17 +660,17 @@ function Profile({ onUserUpdate }) {
 
                       <div className="pf-addr-actions">
                         <button className="pf-mini edit" onClick={() => handleEditAddress(addr)}>
-                          ✏️ Edit
+                          ✏️ {t("profile.edit_address")}
                         </button>
                         {deleteId === addr._id ? (
                           <div className="pf-confirm">
-                            <span>Delete?</span>
-                            <button className="yes" onClick={() => handleDeleteAddress(addr._id)}>Yes</button>
-                            <button className="no" onClick={() => setDeleteId(null)}>No</button>
+                            <span>{t("profile.delete_confirm")}</span>
+                            <button className="yes" onClick={() => handleDeleteAddress(addr._id)}>{t("profile.yes")}</button>
+                            <button className="no" onClick={() => setDeleteId(null)}>{t("profile.no")}</button>
                           </div>
                         ) : (
                           <button className="pf-mini del" onClick={() => setDeleteId(addr._id)}>
-                            🗑️ Delete
+                            🗑️ {t("admin.delete")}
                           </button>
                         )}
                       </div>
