@@ -3,15 +3,605 @@ const router = require("express").Router();
 const Order = require("../models/Order");
 const User = require("../models/User");
 const Product = require("../models/Product");
+const Coupon = require("../models/Coupon");
+const mongoose = require("mongoose");
+const SupplierPurchase = require("../models/SupplierPurchase");
+const StockMovement = require("../models/StockMovement");
 const auth = require("../middleware/auth");
-const { protectAdmin } = require("../middleware/adminAuth");
+const { restrictTo } = require("../middleware/adminAuth");
 const { sendStatusUpdateEmail } = require("../utils/sendEmail");
+const { releaseCoupon } = require("../utils/couponPricing");
+const aiAnalyticsController = require("../controllers/aiAnalyticsController");
+const { BulkCostUpdateError, bulkUpdateProductCosts } = require("../services/bulkProductCostService");
 
 console.log("🔧 Loading admin routes...");
 
-// ✅ All admin routes require auth + admin role
+class CouponInputError extends Error {}
+const normalizeProductTags = (input) => {
+  if (input === undefined) return [];
+  const tags = Array.isArray(input)
+    ? input
+    : typeof input === "string"
+      ? input.split(",")
+      : null;
+  if (
+    !tags ||
+    tags.length > 20 ||
+    tags.some((tag) => typeof tag !== "string" || tag.trim().length > 40)
+  ) {
+    throw new Error("Provide up to 20 search tags, each no longer than 40 characters.");
+  }
+  return [...new Set(tags.map((tag) => tag.trim()).filter(Boolean))];
+};
+
+const normalizeCouponInput = (input, existing = {}) => {
+  const merged = { ...existing, ...input };
+  const code = String(merged.code || "").trim().toUpperCase();
+  const type = merged.type;
+  const value = Number(merged.value);
+  const minimumSubtotal = Number(merged.minimumSubtotal ?? 0);
+  const optionalNumber = (field) => {
+    if (merged[field] === "" || merged[field] === null || merged[field] === undefined) {
+      return null;
+    }
+    return Number(merged[field]);
+  };
+  const maxDiscount = optionalNumber("maxDiscount");
+  const usageLimit = optionalNumber("usageLimit");
+  const perUserLimit = optionalNumber("perUserLimit");
+  const parseDate = (field) => {
+    if (!merged[field]) return null;
+    const date = new Date(merged[field]);
+    return Number.isNaN(date.getTime()) ? NaN : date;
+  };
+  const startsAt = parseDate("startsAt");
+  const expiresAt = parseDate("expiresAt");
+
+  if (
+    merged.isActive !== undefined &&
+    typeof merged.isActive !== "boolean"
+  ) {
+    throw new CouponInputError("Coupon active status must be true or false.");
+  }
+  if (!/^[A-Z0-9_-]{3,32}$/.test(code)) {
+    throw new CouponInputError("Coupon code must be 3–32 letters, numbers, hyphens, or underscores.");
+  }
+  if (!["percentage", "fixed"].includes(type)) {
+    throw new CouponInputError("Choose a percentage or fixed-amount coupon.");
+  }
+  if (!Number.isFinite(value) || value <= 0 || (type === "percentage" && value > 100)) {
+    throw new CouponInputError(type === "percentage"
+      ? "Percentage value must be greater than 0 and no more than 100."
+      : "Fixed discount must be greater than 0.");
+  }
+  if (!Number.isFinite(minimumSubtotal) || minimumSubtotal < 0) {
+    throw new CouponInputError("Minimum subtotal cannot be negative.");
+  }
+  if (maxDiscount !== null && (!Number.isFinite(maxDiscount) || maxDiscount <= 0)) {
+    throw new CouponInputError("Maximum discount must be greater than 0.");
+  }
+  if (type !== "percentage" && maxDiscount !== null) {
+    throw new CouponInputError("Maximum discount applies only to percentage coupons.");
+  }
+  for (const [label, limit] of [["Usage limit", usageLimit], ["Per-customer limit", perUserLimit]]) {
+    if (limit !== null && (!Number.isInteger(limit) || limit < 1)) {
+      throw new CouponInputError(`${label} must be a positive whole number.`);
+    }
+  }
+  if (Number.isNaN(startsAt) || Number.isNaN(expiresAt)) {
+    throw new CouponInputError("Enter valid coupon dates.");
+  }
+  if (startsAt && expiresAt && startsAt >= expiresAt) {
+    throw new CouponInputError("Expiration must be later than the start date.");
+  }
+
+  return {
+    code,
+    type,
+    value,
+    maxDiscount: type === "percentage" ? maxDiscount : null,
+    minimumSubtotal,
+    startsAt,
+    expiresAt,
+    usageLimit,
+    perUserLimit,
+    isActive: merged.isActive === undefined ? true : Boolean(merged.isActive),
+  };
+};
+
+// Verify the current database role for every management request.
 router.use(auth);
-router.use(protectAdmin);
+router.use("/coupons", restrictTo("business_owner"));
+router.use("/analytics", restrictTo("business_owner"));
+router.use("/dashboard", restrictTo("business_owner"));
+router.use("/orders", restrictTo("business_owner"));
+router.use("/products", restrictTo("business_owner"));
+router.use("/reports", restrictTo("business_owner"));
+router.use("/ai-analytics", restrictTo("business_owner"));
+router.use("/users", restrictTo("system_admin"));
+router.use("/system", restrictTo("system_admin"));
+
+router.get("/ai-analytics/sales-forecast", aiAnalyticsController.getSalesForecast);
+router.get("/ai-analytics/stock-predictions", aiAnalyticsController.getStockPredictions);
+router.get("/ai-analytics/customer-insights", aiAnalyticsController.getCustomerInsights);
+
+router.get("/coupons", async (req, res) => {
+  try {
+    const coupons = await Coupon.find().sort({ createdAt: -1 });
+    return res.json(coupons);
+  } catch (error) {
+    console.error("Get coupons error:", error);
+    return res.status(500).json({ message: "Failed to fetch coupons." });
+  }
+});
+
+router.post("/coupons", async (req, res) => {
+  try {
+    const coupon = await Coupon.create(normalizeCouponInput(req.body));
+    return res.status(201).json(coupon);
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ message: "That coupon code already exists." });
+    }
+    if (error instanceof CouponInputError || error.name === "ValidationError") {
+      return res.status(400).json({ message: error.message });
+    }
+    console.error("Create coupon error:", error);
+    return res.status(500).json({ message: "Failed to create coupon." });
+  }
+});
+
+router.put("/coupons/:id", async (req, res) => {
+  try {
+    const coupon = await Coupon.findById(req.params.id);
+    if (!coupon) return res.status(404).json({ message: "Coupon not found." });
+
+    const normalized = normalizeCouponInput(req.body, coupon.toObject());
+    Object.assign(coupon, normalized);
+    await coupon.save();
+    return res.json(coupon);
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ message: "That coupon code already exists." });
+    }
+    if (error instanceof CouponInputError || error.name === "ValidationError") {
+      return res.status(400).json({ message: error.message });
+    }
+    console.error("Update coupon error:", error);
+    return res.status(500).json({ message: "Failed to update coupon." });
+  }
+});
+
+router.delete("/coupons/:id", async (req, res) => {
+  try {
+    const coupon = await Coupon.findByIdAndUpdate(
+      req.params.id,
+      { isActive: false },
+      { new: true },
+    );
+    if (!coupon) return res.status(404).json({ message: "Coupon not found." });
+    return res.json({ message: "Coupon deactivated.", coupon });
+  } catch (error) {
+    console.error("Deactivate coupon error:", error);
+    return res.status(500).json({ message: "Failed to deactivate coupon." });
+  }
+});
+
+router.get("/system/health", async (req, res) => {
+  const databaseConnected = mongoose.connection.readyState === 1;
+
+  return res.status(databaseConnected ? 200 : 503).json({
+    status: databaseConnected ? "ok" : "unavailable",
+    database: databaseConnected ? "connected" : "disconnected",
+    uptime: process.uptime(),
+    nodeVersion: process.version,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+const getReportRange = (query) => {
+  const end = query.endDate ? new Date(`${query.endDate}T23:59:59.999Z`) : new Date();
+  const start = query.startDate
+    ? new Date(`${query.startDate}T00:00:00.000Z`)
+    : new Date(end.getTime() - 29 * 24 * 60 * 60 * 1000);
+  if (
+    Number.isNaN(start.getTime()) ||
+    Number.isNaN(end.getTime()) ||
+    start > end
+  ) {
+    return null;
+  }
+  return { start, end };
+};
+
+router.get("/reports", async (req, res) => {
+  const range = getReportRange(req.query);
+  const interval = req.query.interval || "day";
+  const dateFormats = { day: "%Y-%m-%d", week: "%G-W%V", month: "%Y-%m", year: "%Y" };
+  if (!range) return res.status(400).json({ message: "Provide a valid date range." });
+  if (!Object.hasOwn(dateFormats, interval)) {
+    return res.status(400).json({ message: "Interval must be day, week, month, or year." });
+  }
+
+  try {
+  const orderRange = { createdAt: { $gte: range.start, $lte: range.end } };
+  const paidOrders = { ...orderRange, paymentStatus: "paid" };
+  const [sales, bestSelling, payments, profitLoss, customers, products, purchases, adjustments] =
+    await Promise.all([
+      Order.aggregate([
+        { $match: paidOrders },
+        { $group: {
+          _id: { $dateToString: { format: dateFormats[interval], date: "$createdAt", timezone: "UTC" } },
+          orders: { $sum: 1 },
+          revenue: { $sum: "$totalPrice" },
+          discounts: { $sum: { $ifNull: ["$coupon.discount", 0] } },
+        } },
+        { $sort: { _id: 1 } },
+      ]),
+      Order.aggregate([
+        { $match: paidOrders },
+        { $unwind: "$products" },
+        { $group: {
+          _id: "$products.product",
+          name: { $last: "$products.name" },
+          quantity: { $sum: "$products.quantity" },
+          revenue: { $sum: { $multiply: ["$products.price", "$products.quantity"] } },
+        } },
+        { $sort: { quantity: -1 } },
+        { $limit: 100 },
+      ]),
+      Order.aggregate([
+        { $match: orderRange },
+        { $group: {
+          _id: { method: { $ifNull: ["$paymentMethod", "unknown"] }, status: "$paymentStatus" },
+          orders: { $sum: 1 },
+          amount: { $sum: "$totalPrice" },
+        } },
+        { $sort: { "_id.method": 1, "_id.status": 1 } },
+      ]),
+      Order.aggregate([
+        { $match: paidOrders },
+        { $unwind: "$products" },
+        { $group: {
+          _id: "$_id",
+          revenue: {
+            $first: {
+              $subtract: [
+                { $ifNull: ["$subtotal", "$totalPrice"] },
+                { $ifNull: ["$coupon.discount", 0] },
+              ],
+            },
+          },
+          costOfGoodsSold: {
+            $sum: {
+              $cond: [
+                { $ne: [{ $ifNull: ["$products.costPrice", null] }, null] },
+                { $multiply: ["$products.costPrice", "$products.quantity"] },
+                0,
+              ],
+            },
+          },
+          linesWithMissingCost: {
+            $sum: {
+              $cond: [{ $eq: [{ $ifNull: ["$products.costPrice", null] }, null] }, 1, 0],
+            },
+          },
+          lines: { $sum: 1 },
+        } },
+        { $group: {
+          _id: null,
+          revenue: { $sum: "$revenue" },
+          costOfGoodsSold: { $sum: "$costOfGoodsSold" },
+          linesWithMissingCost: { $sum: "$linesWithMissingCost" },
+          lines: { $sum: "$lines" },
+        } },
+        { $project: {
+          _id: 0,
+          revenue: 1,
+          costOfGoodsSold: 1,
+          grossProfit: { $subtract: ["$revenue", "$costOfGoodsSold"] },
+          linesWithMissingCost: 1,
+          lines: 1,
+        } },
+      ]),
+      Order.aggregate([
+        { $match: paidOrders },
+        { $group: {
+          _id: "$user",
+          orders: { $sum: 1 },
+          spent: { $sum: "$totalPrice" },
+          lastPurchase: { $max: "$createdAt" },
+        } },
+        { $sort: { spent: -1 } },
+        { $limit: 500 },
+        { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "customer" } },
+        { $unwind: { path: "$customer", preserveNullAndEmptyArrays: true } },
+        { $project: {
+          _id: 0,
+          customerId: "$_id",
+          name: { $ifNull: ["$customer.name", "Deleted customer"] },
+          email: { $ifNull: ["$customer.email", ""] },
+          orders: 1,
+          spent: 1,
+          lastPurchase: 1,
+        } },
+      ]),
+      Product.find().select("name category stock costPrice price").sort({ name: 1 }).lean(),
+      SupplierPurchase.find({ purchaseDate: { $gte: range.start, $lte: range.end } })
+        .select("supplierName productName quantity unitCost totalCost purchaseDate reference notes")
+        .sort({ purchaseDate: -1 }).lean(),
+      StockMovement.find({ createdAt: { $gte: range.start, $lte: range.end } })
+        .select("productName type quantity stockAfter unitCost note createdAt").sort({ createdAt: -1 }).lean(),
+    ]);
+
+  const stockMovements = [
+    ...adjustments,
+    ...purchases.map((purchase) => ({
+      productName: purchase.productName,
+      type: "supplier_purchase",
+      quantity: purchase.quantity,
+      stockAfter: null,
+      unitCost: purchase.unitCost,
+      note: `${purchase.supplierName}${purchase.reference ? ` · ${purchase.reference}` : ""}`,
+      createdAt: purchase.purchaseDate,
+    })),
+  ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  const salesQuantities = new Map(bestSelling.map((item) => [String(item._id), item.quantity]));
+
+
+  const inventory = products.map((product) => ({
+    productId: product._id,
+    name: product.name,
+    category: product.category,
+    stock: product.stock,
+    price: product.price,
+    unitCost: product.costPrice,
+    valuation: product.costPrice == null ? null : Number((product.stock * product.costPrice).toFixed(2)),
+    unitsSold: salesQuantities.get(String(product._id)) || 0,
+  }));
+  const financials = profitLoss[0] || {
+    revenue: 0, costOfGoodsSold: 0, grossProfit: 0, linesWithMissingCost: 0, lines: 0,
+  };
+  financials.incompleteCostLines = financials.linesWithMissingCost;
+  financials.isComplete = financials.linesWithMissingCost === 0;
+  if (!financials.isComplete) financials.grossProfit = null;
+  const averageUnitsSold = inventory.length
+    ? inventory.reduce((sum, item) => sum + item.unitsSold, 0) / inventory.length
+    : 0;
+
+  return res.json({
+    range,
+    interval,
+    sales,
+    profitLoss: financials,
+    inventory: {
+      items: inventory,
+      valuation: Number(inventory.reduce((sum, item) => sum + (item.valuation || 0), 0).toFixed(2)),
+      itemsWithoutCost: inventory.filter((item) => item.unitCost == null).length,
+    },
+    stockMovements,
+    bestSelling,
+    slowMoving: inventory
+      .filter((item) => item.unitsSold <= averageUnitsSold)
+      .sort((a, b) => a.unitsSold - b.unitsSold || b.stock - a.stock),
+    customers,
+    payments: payments.map((item) => ({
+      method: item._id.method,
+      status: item._id.status,
+      orders: item.orders,
+      amount: item.amount,
+    })),
+    supplierPurchases: purchases,
+    notes: {
+      revenue: "Sales reports include paid orders only and group by order creation date.",
+      profitLoss: "Gross profit excludes operating expenses. Orders created before product cost snapshots were introduced may have missing cost values.",
+      inventory: "Inventory valuation uses the current product cost price; products without a recorded cost are excluded from the total.",
+      stockMovements: "Order sales and manual adjustments are tracked from this release onward. Supplier purchases are derived from supplier purchase records.",
+    },
+  });
+  } catch (error) {
+    console.error("Reports analytics error:", error);
+    return res.status(500).json({ message: "Failed to load reports." });
+  }
+});
+
+router.post("/reports/supplier-purchases", async (req, res) => {
+  const { supplierName, productId, quantity, unitCost, purchaseDate, reference = "", notes = "" } = req.body;
+  const parsedQuantity = Number(quantity);
+  const parsedUnitCost = Number(unitCost);
+  const parsedDate = purchaseDate ? new Date(purchaseDate) : new Date();
+  if (
+    typeof supplierName !== "string" ||
+    !supplierName.trim() ||
+    supplierName.trim().length > 120 ||
+    !mongoose.isValidObjectId(productId) ||
+    !Number.isSafeInteger(parsedQuantity) ||
+    parsedQuantity < 1 ||
+    !Number.isFinite(parsedUnitCost) ||
+    parsedUnitCost < 0 ||
+    !Number.isFinite(parsedQuantity * parsedUnitCost) ||
+    Number.isNaN(parsedDate.getTime()) ||
+    typeof reference !== "string" ||
+    reference.length > 120 ||
+    typeof notes !== "string" ||
+    notes.length > 1000
+  ) {
+    return res.status(400).json({ message: "Enter a supplier, valid product, positive whole quantity, unit cost, and valid purchase date." });
+  }
+
+  let purchase;
+  try {
+    const product = await Product.findById(productId).select("name");
+    if (!product) return res.status(404).json({ message: "Product not found." });
+
+    purchase = await SupplierPurchase.create({
+      supplierName: supplierName.trim(),
+      product: product._id,
+      productName: product.name,
+      quantity: parsedQuantity,
+      unitCost: parsedUnitCost,
+      totalCost: Number((parsedQuantity * parsedUnitCost).toFixed(2)),
+      purchaseDate: parsedDate,
+      reference: reference.trim(),
+      notes: notes.trim(),
+    });
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+      productId,
+      [{
+        $set: {
+          costPrice: {
+            $cond: [
+              { $lte: [{ $ifNull: ["$stock", 0] }, 0] },
+              parsedUnitCost,
+              {
+                $cond: [
+                  { $eq: [{ $ifNull: ["$costPrice", null] }, null] },
+                  null,
+                  {
+                    $divide: [
+                      {
+                        $add: [
+                          { $multiply: ["$stock", "$costPrice"] },
+                          parsedQuantity * parsedUnitCost,
+                        ],
+                      },
+                      { $add: ["$stock", parsedQuantity] },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+          stock: { $add: [{ $ifNull: ["$stock", 0] }, parsedQuantity] },
+        },
+      }],
+      { new: true },
+    );
+    if (!updatedProduct) {
+      await SupplierPurchase.findByIdAndDelete(purchase._id);
+      return res.status(404).json({ message: "Product not found." });
+    }
+
+    return res.status(201).json({ message: "Supplier purchase recorded and stock updated.", purchase, product: updatedProduct });
+  } catch (error) {
+    if (purchase) await SupplierPurchase.findByIdAndDelete(purchase._id);
+    console.error("Record supplier purchase error:", error);
+    return res.status(500).json({ message: "Could not record supplier purchase." });
+  }
+});
+
+router.get("/analytics/revenue", async (req, res) => {
+  try {
+    const range = req.query.range || "30d";
+    if (!["7d", "30d", "12m"].includes(range)) {
+      return res.status(400).json({ message: "Range must be 7d, 30d, or 12m." });
+    }
+
+    const now = new Date();
+    const isMonthly = range === "12m";
+    const start = isMonthly
+      ? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 11, 1))
+      : new Date(
+          Date.UTC(
+            now.getUTCFullYear(),
+            now.getUTCMonth(),
+            now.getUTCDate() - (range === "7d" ? 6 : 29),
+          ),
+        );
+    const end = isMonthly
+      ? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
+      : new Date(
+          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
+        );
+    const dateFormat = isMonthly ? "%Y-%m" : "%Y-%m-%d";
+    const match = {
+      paymentStatus: "paid",
+      createdAt: { $gte: start, $lt: end },
+    };
+
+    const [series, paymentBreakdown] = await Promise.all([
+      Order.aggregate([
+        { $match: match },
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: dateFormat,
+                date: "$createdAt",
+                timezone: "UTC",
+              },
+            },
+            revenue: { $sum: "$totalPrice" },
+            orders: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+      Order.aggregate([
+        { $match: match },
+        {
+          $group: {
+            _id: { $ifNull: ["$paymentMethod", "unknown"] },
+            revenue: { $sum: "$totalPrice" },
+            orders: { $sum: 1 },
+          },
+        },
+        { $sort: { revenue: -1 } },
+      ]),
+    ]);
+
+    const valuesByPeriod = new Map(
+      series.map((item) => [
+        item._id,
+        { revenue: Number(item.revenue) || 0, orders: item.orders || 0 },
+      ]),
+    );
+    const revenueSeries = [];
+    const cursor = new Date(start);
+    while (cursor < end) {
+      const period = isMonthly
+        ? cursor.toISOString().slice(0, 7)
+        : cursor.toISOString().slice(0, 10);
+      revenueSeries.push({
+        period,
+        revenue: valuesByPeriod.get(period)?.revenue || 0,
+        orders: valuesByPeriod.get(period)?.orders || 0,
+      });
+      if (isMonthly) cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+      else cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+
+    const totalRevenue = revenueSeries.reduce(
+      (total, item) => total + item.revenue,
+      0,
+    );
+    const totalOrders = revenueSeries.reduce(
+      (total, item) => total + item.orders,
+      0,
+    );
+
+    return res.json({
+      range,
+      currency: "ETB",
+      totalRevenue,
+      totalOrders,
+      averageOrderValue: totalOrders
+        ? Number((totalRevenue / totalOrders).toFixed(2))
+        : 0,
+      revenueSeries,
+      paymentBreakdown: paymentBreakdown.map((item) => ({
+        method: item._id,
+        revenue: Number(item.revenue) || 0,
+        orders: item.orders || 0,
+      })),
+    });
+  } catch (error) {
+    console.error("Revenue analytics error:", error);
+    return res.status(500).json({ message: "Failed to load revenue analytics." });
+  }
+});
 
 // ============================================
 // DASHBOARD
@@ -23,9 +613,8 @@ router.get("/dashboard", async (req, res) => {
     console.log("📊 Admin dashboard request from:", req.user?.email);
 
     const totalOrders = await Order.countDocuments();
-    const totalUsers = await User.countDocuments({ role: "user" });
+    const totalUsers = await User.countDocuments({ role: "customer" });
     const totalProducts = await Product.countDocuments();
-    const totalAdmins = await User.countDocuments({ role: "admin" });
 
     const revenueResult = await Order.aggregate([
       { $match: { paymentStatus: "paid" } },
@@ -67,7 +656,6 @@ router.get("/dashboard", async (req, res) => {
         totalOrders,
         totalUsers,
         totalProducts,
-        totalAdmins,
         totalRevenue,
         pendingRevenue,
         todayOrders,
@@ -154,6 +742,15 @@ router.delete("/orders/:id", async (req, res) => {
     }
 
     await Order.findByIdAndDelete(req.params.id);
+    if (
+      order.paymentStatus !== "paid" &&
+      (order.coupon?.couponId || order.coupon?.code)
+    ) {
+      const coupon = order.coupon.couponId
+        ? await Coupon.findById(order.coupon.couponId)
+        : await Coupon.findOne({ code: order.coupon.code });
+      if (coupon) await releaseCoupon(coupon._id, order.user, order._id);
+    }
 
     console.log(`✅ Order deleted: #${req.params.id.slice(-6).toUpperCase()}`);
 
@@ -189,8 +786,54 @@ router.put("/orders/:id/status", async (req, res) => {
     }
 
     const oldStatus = order.status;
+    const shouldRestoreStock =
+      status === "cancelled" &&
+      oldStatus !== "cancelled" &&
+      ["pending", "pending_payment"].includes(oldStatus) &&
+      order.paymentStatus !== "paid";
     order.status = status;
+    if (
+      status === "delivered" &&
+      order.paymentMethod === "cod" &&
+      order.paymentStatus === "pending"
+    ) {
+      order.paymentStatus = "paid";
+    }
     await order.save();
+    if (shouldRestoreStock) {
+      for (const item of order.products) {
+        if (!item.product) continue;
+        const product = await Product.findByIdAndUpdate(
+          item.product,
+          { $inc: { stock: item.quantity } },
+          { new: true },
+        );
+        if (product) {
+          await StockMovement.create({
+            product: product._id,
+            productName: item.name || product.name,
+            type: "return",
+            quantity: item.quantity,
+            stockAfter: product.stock,
+            unitCost: item.costPrice ?? null,
+            order: order._id,
+            note: "Business-owner cancellation",
+          });
+        }
+      }
+    }
+
+    if (
+      status === "cancelled" &&
+      oldStatus !== "cancelled" &&
+      order.paymentStatus !== "paid" &&
+      (order.coupon?.couponId || order.coupon?.code)
+    ) {
+      const coupon = order.coupon.couponId
+        ? await Coupon.findById(order.coupon.couponId)
+        : await Coupon.findOne({ code: order.coupon.code });
+      if (coupon) await releaseCoupon(coupon._id, order.user?._id, order._id);
+    }
 
     if (order.user?.email && oldStatus !== status) {
       sendStatusUpdateEmail(order.user.email, order, status).catch((err) =>
@@ -285,10 +928,10 @@ router.put("/users/:id/role", async (req, res) => {
   try {
     const { role } = req.body;
 
-    if (!["user", "admin"].includes(role)) {
+    if (!["customer", "business_owner", "system_admin"].includes(role)) {
       return res
         .status(400)
-        .json({ message: "Invalid role. Must be 'user' or 'admin'" });
+        .json({ message: "Role must be customer, business_owner, or system_admin." });
     }
 
     const user = await User.findById(req.params.id);
@@ -403,6 +1046,19 @@ router.get("/products", async (req, res) => {
   }
 });
 
+router.put("/products/bulk-cost", async (req, res) => {
+  try {
+    const result = await bulkUpdateProductCosts(Product, req.body);
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    if (error instanceof BulkCostUpdateError) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
+    console.error("Bulk product cost update error:", error);
+    return res.status(500).json({ message: "Failed to update product costs." });
+  }
+});
+
 // ✅ GET /admin/products/:id - MUST BE AFTER /products!
 router.get("/products/:id", async (req, res) => {
   try {
@@ -429,13 +1085,33 @@ router.post("/products", async (req, res) => {
       descriptionOm,
       descriptionTi,
       price,
+      discount,
       category,
       stock,
       image,
+      costPrice,
+      brand,
+      tags,
     } = req.body;
 
     if (!name || !price) {
       return res.status(400).json({ message: "Name and price are required" });
+    }
+    if (
+      costPrice !== undefined &&
+      costPrice !== "" &&
+      (!Number.isFinite(Number(costPrice)) || Number(costPrice) < 0)
+    ) {
+      return res.status(400).json({ message: "Cost price must be zero or greater." });
+    }
+    if (brand !== undefined && (typeof brand !== "string" || brand.length > 80)) {
+      return res.status(400).json({ message: "Brand must be a string of 80 characters or fewer." });
+    }
+    let normalizedTags;
+    try {
+      normalizedTags = normalizeProductTags(tags);
+    } catch (error) {
+      return res.status(400).json({ message: error.message });
     }
 
     let imageUrl =
@@ -468,12 +1144,26 @@ router.post("/products", async (req, res) => {
       descriptionOm: descriptionOm || "",
       descriptionTi: descriptionTi || "",
       price: parseFloat(price),
+      discount: discount === undefined ? 0 : Number(discount),
       category: category || "Uncategorized",
       stock: parseInt(stock) || 0,
+      costPrice: costPrice === "" || costPrice == null ? null : Number(costPrice),
+      brand: brand?.trim() || "",
+      tags: normalizedTags,
       image: imageUrl,
     });
 
     await product.save();
+    if (product.stock > 0) {
+      await StockMovement.create({
+        product: product._id,
+        productName: product.name,
+        type: "opening",
+        quantity: product.stock,
+        stockAfter: product.stock,
+        unitCost: product.costPrice,
+      });
+    }
 
     console.log("✅ Product created:", product.name);
 
@@ -500,15 +1190,51 @@ router.put("/products/:id", async (req, res) => {
       descriptionOm,
       descriptionTi,
       price,
+      discount,
       category,
       stock,
       image,
+      costPrice,
+      brand,
+      tags,
     } = req.body;
 
     const product = await Product.findById(req.params.id);
 
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
+    }
+
+    const discountValue =
+      discount === undefined ? undefined : Number(discount);
+    if (
+      discountValue !== undefined &&
+      (!Number.isInteger(discountValue) ||
+        discountValue < 0 ||
+        discountValue > 100)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Discount must be a whole percentage from 0 to 100" });
+    }
+    if (
+      costPrice !== undefined &&
+      costPrice !== null &&
+      costPrice !== "" &&
+      (!Number.isFinite(Number(costPrice)) || Number(costPrice) < 0)
+    ) {
+      return res.status(400).json({ message: "Cost price must be zero or greater." });
+    }
+    if (brand !== undefined && (typeof brand !== "string" || brand.length > 80)) {
+      return res.status(400).json({ message: "Brand must be a string of 80 characters or fewer." });
+    }
+    let normalizedTags;
+    if (tags !== undefined) {
+      try {
+        normalizedTags = normalizeProductTags(tags);
+      } catch (error) {
+        return res.status(400).json({ message: error.message });
+      }
     }
 
     let imageUrl = product.image;
@@ -530,6 +1256,7 @@ router.put("/products/:id", async (req, res) => {
       imageUrl = image;
     }
 
+    const previousStock = product.stock;
     product.name = name || product.name;
     product.description =
       description !== undefined ? description : product.description;
@@ -540,13 +1267,35 @@ router.put("/products/:id", async (req, res) => {
     product.descriptionTi =
       descriptionTi !== undefined ? descriptionTi : product.descriptionTi;
     product.price = price ? parseFloat(price) : product.price;
+    if (discountValue !== undefined) product.discount = discountValue;
     product.category = category || product.category;
     product.stock = stock !== undefined ? parseInt(stock) : product.stock;
+    if (costPrice !== undefined) {
+      product.costPrice = costPrice === "" || costPrice === null ? null : Number(costPrice);
+    }
+    if (brand !== undefined) product.brand = String(brand).trim();
+    if (normalizedTags !== undefined) product.tags = normalizedTags;
     product.image = imageUrl;
 
     await product.save();
+    const stockDelta = product.stock - previousStock;
+    if (stockDelta !== 0) {
+      await StockMovement.create({
+        product: product._id,
+        productName: product.name,
+        type: "adjustment",
+        quantity: stockDelta,
+        stockAfter: product.stock,
+        unitCost: product.costPrice,
+        note: "Manual product stock edit",
+      });
+    }
 
-    console.log("✅ Product updated:", product.name);
+    console.log(
+      "✅ Product updated:",
+      product.name,
+      `(${product.discount}% discount)`,
+    );
 
     res.json({ message: "Product updated successfully", product });
   } catch (err) {
@@ -590,8 +1339,8 @@ router.post("/users", async (req, res) => {
       });
     }
 
-    if (!["user", "admin"].includes(role)) {
-      return res.status(400).json({ message: "Invalid role" });
+    if (!["customer", "business_owner", "system_admin"].includes(role)) {
+      return res.status(400).json({ message: "Invalid role." });
     }
 
     // Check if email already exists

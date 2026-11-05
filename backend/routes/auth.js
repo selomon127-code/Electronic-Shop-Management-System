@@ -4,12 +4,10 @@ const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const axios = require("axios");
-const {
-  sendWelcomeEmail,
-  sendPasswordResetEmail,
-} = require("../utils/sendEmail");
+const sendWelcomeEmail = require("../utils/sendWelcomeEmail");
+const sendPasswordResetEmail = require("../utils/sendPasswordResetEmail");
 
-const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const signToken = (user) =>
   jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
@@ -58,7 +56,7 @@ router.post("/register", async (req, res) => {
       password,
       phone: phone || "",
 
-      role: "user",
+      role: "customer",
       authProvider: "local",
       preferredLanguage: preferredLang, // ✅ Save user's language preference
     });

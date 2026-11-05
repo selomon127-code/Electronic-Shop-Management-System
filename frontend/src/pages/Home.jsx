@@ -4,6 +4,8 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import API from "../api/axios";
 import ProductCard from "../components/ProductCard";
+import { getRecentlyViewedProducts } from "../utils/recentlyViewed";
+import CouponPromotions from "../components/CouponPromotions";
 
 /* ---------- Scroll-reveal wrapper (animates children when they enter the viewport) ---------- */
 function Reveal({ children, delay = 0, className = "" }) {
@@ -99,6 +101,9 @@ const BRANDS = ["Samsung", "Apple", "HP", "Lenovo", "Sony", "JBL", "Xiaomi", "De
 function Home({ addToCart, user }) {
   const { t } = useTranslation();
   const [products, setProducts] = useState([]);
+  const [recentlyViewedProducts, setRecentlyViewedProducts] = useState(
+    getRecentlyViewedProducts,
+  );
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
@@ -117,6 +122,22 @@ function Home({ addToCart, user }) {
     fetchProducts();
   }, []);
 
+  useEffect(() => {
+    const refreshRecentlyViewed = () => {
+      setRecentlyViewedProducts(getRecentlyViewedProducts());
+    };
+
+    window.addEventListener("focus", refreshRecentlyViewed);
+    window.addEventListener("pageshow", refreshRecentlyViewed);
+    window.addEventListener("storage", refreshRecentlyViewed);
+
+    return () => {
+      window.removeEventListener("focus", refreshRecentlyViewed);
+      window.removeEventListener("pageshow", refreshRecentlyViewed);
+      window.removeEventListener("storage", refreshRecentlyViewed);
+    };
+  }, []);
+
   const handleSubscribe = (e) => {
     e.preventDefault();
     if (!email.trim()) return;
@@ -127,6 +148,10 @@ function Home({ addToCart, user }) {
   return (
     <div className="home">
       <style>{css}</style>
+
+      <div className="container" style={{ paddingTop: "1rem" }}>
+        <CouponPromotions />
+      </div>
 
       {/* ================= HERO ================= */}
       <section className="hero">
@@ -197,6 +222,25 @@ function Home({ addToCart, user }) {
           ))}
         </div>
       </section>
+
+      {recentlyViewedProducts.length > 0 && (
+        <section className="container section" aria-label={t("home.recently_viewed")}>
+          <Reveal>
+            <div className="section-head">
+              <h2>{t("home.recently_viewed")}</h2>
+            </div>
+          </Reveal>
+          <div className="grid">
+            {recentlyViewedProducts.map((product, i) => (
+              <Reveal key={product._id} delay={(i % 4) * 90}>
+                <div className="product-wrap">
+                  <ProductCard product={product} addToCart={addToCart} user={user} />
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ================= CATEGORIES ================= */}
       <section className="container section">
@@ -329,7 +373,7 @@ function Home({ addToCart, user }) {
 
 /* ---------- Styles (self-contained, no extra dependencies) ---------- */
 const css = `
-.home { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; color: #0f172a; overflow-x: hidden; }
+.home { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; color: #0f172a; }
 .home * { box-sizing: border-box; }
 .container { max-width: 1400px; margin: 0 auto; padding: 0 1.5rem; }
 .section { margin-top: 4.5rem; }

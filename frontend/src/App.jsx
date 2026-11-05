@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 
 // Layouts
 import AdminLayout from "./layouts/AdminLayout";
+import RequireRole from "./components/RequireRole";
 import Wishlist from "./pages/Wishlist";
 import Profile from "./pages/Profile";
 
@@ -14,6 +15,9 @@ import Users from "./pages/admin/Users";
 import Products from "./pages/admin/Products";
 import AddProduct from "./pages/admin/AddProduct";
 import EditProduct from "./pages/admin/EditProduct";
+import Coupons from "./pages/admin/Coupons";
+import SystemHealth from "./pages/admin/SystemHealth";
+import Reports from "./pages/admin/Reports";
 
 // Auth Pages
 import GoogleAuthSuccess from "./pages/GoogleAuthSuccess";
@@ -36,9 +40,12 @@ import OrderDetail from "./pages/OrderDetail";
 // Components
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
-import Chatbot from "./components/Chatbot";
+import AIChatbotWidget from "./components/AIChatbotWidget";
+import ToastNotifications, { useToast } from "./components/ToastNotifications";
+import i18n from "./i18n";
 
 function App() {
+  const notify = useToast();
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
 
@@ -97,7 +104,7 @@ function App() {
     setCart([]);
   };
 
-  const addToCart = (product) => {
+  const addToCart = (product, { showNotification = true } = {}) => {
     setCart((prevCart) => {
       const existing = prevCart.find((p) => String(p._id) === String(product._id));
       if (existing) {
@@ -110,6 +117,9 @@ function App() {
         return [...prevCart, { ...product, quantity: 1 }];
       }
     });
+    if (showNotification) {
+      notify("success", i18n.t("wishlist.added_to_cart"));
+    }
   };
 
   const removeFromCart = (id) => {
@@ -150,17 +160,20 @@ function App() {
 
         {/* Admin Routes - PROTECTED */}
         <Route path="/admin/*" element={
-          user?.role === "admin" ? (
+          user && ["business_owner", "system_admin"].includes(user.role) ? (
             <AdminLayout user={user} onLogout={handleLogout} />
-          ) : <Navigate to="/" replace />
+          ) : <Navigate to={user ? "/" : "/login"} replace />
         }>
-          <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="orders" element={<Orders />} />
-          <Route path="products" element={<Products />} />
-          <Route path="add-product" element={<AddProduct />} />
-          <Route path="edit-product/:id" element={<EditProduct />} />
-          <Route path="users" element={<Users />} />
+          <Route index element={<Navigate to={user?.role === "system_admin" ? "system" : "dashboard"} replace />} />
+          <Route path="dashboard" element={<RequireRole user={user} roles={["business_owner"]}><Dashboard /></RequireRole>} />
+          <Route path="orders" element={<RequireRole user={user} roles={["business_owner"]}><Orders /></RequireRole>} />
+          <Route path="products" element={<RequireRole user={user} roles={["business_owner"]}><Products /></RequireRole>} />
+          <Route path="add-product" element={<RequireRole user={user} roles={["business_owner"]}><AddProduct /></RequireRole>} />
+          <Route path="edit-product/:id" element={<RequireRole user={user} roles={["business_owner"]}><EditProduct /></RequireRole>} />
+          <Route path="coupons" element={<RequireRole user={user} roles={["business_owner"]}><Coupons /></RequireRole>} />
+          <Route path="reports" element={<RequireRole user={user} roles={["business_owner"]}><Reports /></RequireRole>} />
+          <Route path="users" element={<RequireRole user={user} roles={["system_admin"]}><Users /></RequireRole>} />
+          <Route path="system" element={<RequireRole user={user} roles={["system_admin"]}><SystemHealth /></RequireRole>} />
         </Route>
 
         {/* ✅ PUBLIC ROUTES - Accessible without login */}
@@ -191,7 +204,7 @@ function App() {
         <Route path="/cart" element={
           <>
             <Navbar cartCount={getCartCount()} user={user} handleLogout={handleLogout} />
-            <Cart cart={cart} removeFromCart={removeFromCart} updateQuantity={updateQuantity} />
+            <Cart cart={cart} removeFromCart={removeFromCart} updateQuantity={updateQuantity} addToCart={addToCart} user={user} />
             <Footer />
           </>
         } />
@@ -278,7 +291,8 @@ function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      <Chatbot /> 
+      <ToastNotifications />
+      <AIChatbotWidget addToCart={addToCart} user={user} />
     </Router>
   );
 }

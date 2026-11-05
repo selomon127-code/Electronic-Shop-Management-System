@@ -1,30 +1,38 @@
 // backend/middleware/adminAuth.js
 const User = require("../models/User");
 
-exports.protectAdmin = async (req, res, next) => {
-  try {
-    if (!req.userId) {
-      return res
-        .status(401)
-        .json({ message: "Not authorized. No token provided." });
-    }
-
-    const user = await User.findById(req.userId);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    if (user.role !== "admin") {
-      return res
-        .status(403)
-        .json({ message: "Access denied. Admin privileges required." });
-    }
-
-    req.user = user;
-    next();
-  } catch (err) {
-    console.error("❌ Admin auth error:", err.message);
-    res.status(500).json({ message: "Server error" });
+const restrictTo = (...allowedRoles) => {
+  if (
+    allowedRoles.length === 0 ||
+    allowedRoles.some((role) =>
+      !["customer", "business_owner", "system_admin"].includes(role),
+    )
+  ) {
+    throw new Error("restrictTo requires one or more valid user roles.");
   }
+
+  return async (req, res, next) => {
+    if (!req.userId) {
+      return res.status(401).json({ message: "Authentication required." });
+    }
+
+    try {
+      const user = await User.findById(req.userId).select("role");
+      if (!user) {
+        return res.status(401).json({ message: "Account is no longer available." });
+      }
+
+      req.user = user;
+      if (!allowedRoles.includes(user.role)) {
+        return res.status(403).json({ message: "You do not have permission to access this resource." });
+      }
+
+      return next();
+    } catch (error) {
+      console.error("Role authorization error:", error);
+      return res.status(500).json({ message: "Unable to verify account permissions." });
+    }
+  };
 };
+
+exports.restrictTo = restrictTo;

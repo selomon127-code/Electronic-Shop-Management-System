@@ -31,7 +31,7 @@ router.post("/", async (req, res) => {
   try {
     console.log("📥 POST /wishlist - Request body:", req.body);
 
-    const { productId, name, price, image, category, description, stock } =
+    const { productId, name, price, discount, image, category, description, stock } =
       req.body;
 
     if (!productId || !name || !price) {
@@ -52,6 +52,7 @@ router.post("/", async (req, res) => {
             productId,
             name,
             price,
+            discount: discount || 0,
             image:
               image ||
               "https://via.placeholder.com/300x300/667eea/ffffff?text=No+Image",
@@ -74,6 +75,7 @@ router.post("/", async (req, res) => {
         productId,
         name,
         price,
+        discount: discount || 0,
         image:
           image ||
           "https://via.placeholder.com/300x300/667eea/ffffff?text=No+Image",

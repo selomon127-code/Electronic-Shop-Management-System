@@ -53,7 +53,12 @@ function LoginForm({ onLogin }) {
     try {
       const { data } = await authApi.login({ email: email.trim(), password });
       onLogin(data.user, data.token);
-      navigate(data.user?.role === "admin" ? "/admin/dashboard" : "/", { replace: true });
+      const destination = data.user?.role === "system_admin"
+        ? "/admin/system"
+        : data.user?.role === "business_owner"
+          ? "/admin/dashboard"
+          : "/";
+      navigate(destination, { replace: true });
     } catch (err) {
       const data = err.response?.data;
       if (!err.response) setErrors({ general: t("common.server_error") || "Cannot reach the server." });

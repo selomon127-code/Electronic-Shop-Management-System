@@ -1,0 +1,12 @@
+name: Electronic Shop - Local
+values:
+  - key: baseUrl
+    value: 'http://localhost:5000'
+  - key: testEmail
+    value: ''
+  - key: testPassword
+    value: PostmanTest123!
+  - key: userToken
+    value: ''
+  - key: userId
+    value: ''

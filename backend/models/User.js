@@ -38,8 +38,8 @@ const userSchema = new mongoose.Schema(
     phone: { type: String, trim: true, default: "" },
     role: {
       type: String,
-      enum: ["user", "admin"],
-      default: "user",
+      enum: ["customer", "business_owner", "system_admin"],
+      default: "customer",
     },
     addresses: [addressSchema],
 

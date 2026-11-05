@@ -30,7 +30,7 @@ exports.register = async (req, res) => {
       email,
       password,
       phone,
-      role: "user",
+      role: "customer",
     });
 
     // Generate auth token

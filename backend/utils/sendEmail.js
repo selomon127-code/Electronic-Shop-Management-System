@@ -65,6 +65,58 @@ const emailTranslations = {
   },
 };
 
+const escapeHtml = (value) =>
+  String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character]);
+
+const sendStatusUpdateEmail = async (userEmail, order, status) => {
+  if (!transporter) {
+    console.warn("⚠️ [EMAIL] Skipped: Nodemailer transporter is not configured.");
+    return;
+  }
+
+  const statusLabels = {
+    pending: "Pending",
+    processing: "Processing",
+    shipped: "Shipped",
+    delivered: "Delivered",
+    cancelled: "Cancelled",
+  };
+  const statusLabel = statusLabels[status] || "Updated";
+  const orderId = order?._id
+    ? order._id.toString().slice(-6).toUpperCase()
+    : "N/A";
+  const customerName = escapeHtml(order?.user?.name || "Valued Customer");
+  const trackingUrl = `${process.env.FRONTEND_URL || ""}/profile/orders`;
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM || `"E-Shop Ethiopia" <selomon127@gmail.com>`,
+      to: userEmail,
+      subject: `Order #${orderId} status: ${statusLabel}`,
+      html: `<!DOCTYPE html>
+        <html>
+          <body style="font-family:Arial,sans-serif;background:#f8fafc;color:#1e293b;padding:24px">
+            <main style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;padding:24px">
+              <h1 style="font-size:22px">Your order status has been updated</h1>
+              <p>Hello ${customerName},</p>
+              <p>Order <strong>#${orderId}</strong> is now <strong>${statusLabel}</strong>.</p>
+              <p><a href="${escapeHtml(trackingUrl)}">View your order</a></p>
+              <p style="color:#64748b;font-size:13px">E-Shop Ethiopia</p>
+            </main>
+          </body>
+        </html>`,
+    });
+  } catch (error) {
+    console.error("❌ Status email error:", error.message);
+  }
+};
+
 // ✅ 3. ORDER CONFIRMATION FUNCTION
 const sendOrderConfirmation = async (userEmail, order, userLang = "en") => {
   if (!transporter) {
@@ -243,4 +295,5 @@ const sendLowStockAlert = async (productName, currentStock, adminEmail) => {
 module.exports = {
   sendOrderConfirmation,
   sendLowStockAlert,
+  sendStatusUpdateEmail,
 };

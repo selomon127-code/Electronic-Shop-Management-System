@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{baseUrl}}/api/auth/me"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{token}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('returns HTTP 200', function () { pm.response.to.have.status(200); });
+      pm.test('returns the authenticated user', function () { pm.expect(pm.response.json().email).to.eql(pm.environment.get('testEmail')); });
+    language: text/javascript
+order: 3000

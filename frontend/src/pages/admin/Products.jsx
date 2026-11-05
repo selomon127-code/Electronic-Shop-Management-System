@@ -7,6 +7,7 @@ import {
   AdminStyles, Icon, Kpi, PageHeader, EmptyState, ErrorBanner,
   money, num, getNoImage, useDebounced, useFeedback,
 } from "./adminUi";
+import { getDiscountedPrice } from "../../utils/productPricing";
 
 const LOW_STOCK = 5;
 
@@ -177,7 +178,21 @@ function Products() {
                   </div>
 
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: ".5rem" }}>
-                    <span className="ad-pprice">{money(product.price)}</span>
+                    <span className="ad-pprice">
+                      {money(getDiscountedPrice(product))}
+                      {Number(product.discount) > 0 && (
+                        <>
+                          {" "}
+                          <span className="ad-muted ad-small" style={{ textDecoration: "line-through" }}>
+                            {money(product.price)}
+                          </span>
+                          {" "}
+                          <span className="ad-badge" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+                            {product.discount}% OFF
+                          </span>
+                        </>
+                      )}
+                    </span>
                     <span className="ad-muted ad-small">{t("admin.stock_count", { count: num(product.stock) })}</span>
                   </div>
 

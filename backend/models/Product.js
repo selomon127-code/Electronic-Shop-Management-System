@@ -14,6 +14,35 @@ const productSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    costPrice: {
+      type: Number,
+      min: 0,
+      default: null,
+    },
+    brand: {
+      type: String,
+      trim: true,
+      maxlength: 80,
+      default: "",
+    },
+    tags: {
+      type: [{ type: String, trim: true, maxlength: 40 }],
+      default: [],
+      validate: {
+        validator: (tags) => tags.length <= 20,
+        message: "A product can have up to 20 search tags.",
+      },
+    },
+    discount: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+      validate: {
+        validator: Number.isInteger,
+        message: "Discount must be a whole percentage",
+      },
+    },
     category: {
       type: String,
       required: true,

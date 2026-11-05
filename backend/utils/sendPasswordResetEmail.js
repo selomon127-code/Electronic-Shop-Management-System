@@ -1,8 +1,8 @@
 const { Resend } = require("resend");
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 const sendPasswordResetEmail = async (userEmail, userName, resetToken) => {
   try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
     // Create the reset link (adjust the URL to match your frontend)
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
 

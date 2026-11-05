@@ -31,8 +31,9 @@ function GoogleAuthSuccess({ onLogin }) {
           onLogin(data, token);
         }
 
-        if (data.role === "admin") {
-          console.log("🔑 Admin detected, redirecting to /admin/dashboard");
+        if (data.role === "system_admin") {
+          navigate("/admin/system", { replace: true });
+        } else if (data.role === "business_owner") {
           navigate("/admin/dashboard", { replace: true });
         } else {
           console.log("👤 User detected, redirecting to /");

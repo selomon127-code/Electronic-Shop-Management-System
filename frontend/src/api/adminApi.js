@@ -11,6 +11,7 @@ export const wishlistApi = {
       productId: product._id,
       name: product.name,
       price: product.price,
+      discount: product.discount || 0,
       image: product.image,
       category: product.category,
       description: product.description,
@@ -40,8 +41,18 @@ export const profileApi = {
 
 // ✅ ADMIN API
 export const adminApi = {
+  getSystemHealth: () => API.get("/admin/system/health"),
+
   // Dashboard
   getDashboard: () => API.get("/admin/dashboard"),
+  getRevenueAnalytics: (range = "30d") =>
+    API.get("/admin/analytics/revenue", { params: { range } }),
+  getSalesForecast: (interval = "day") =>
+    API.get("/admin/ai-analytics/sales-forecast", { params: { interval } }),
+  getStockPredictions: () => API.get("/admin/ai-analytics/stock-predictions"),
+  getCustomerInsights: () => API.get("/admin/ai-analytics/customer-insights"),
+  getReports: (params) => API.get("/admin/reports", { params }),
+  recordSupplierPurchase: (purchase) => API.post("/admin/reports/supplier-purchases", purchase),
 
   // Orders
   getOrders: (params = {}) => API.get("/admin/orders", { params }),
@@ -61,14 +72,29 @@ export const adminApi = {
 
   // Products
   getProducts: (params = {}) => API.get("/admin/products", { params }),
+  bulkUpdateProductCosts: (updates) => API.put("/admin/products/bulk-cost", updates),
   getProduct: (id) => API.get(`/admin/products/${id}`),
   createProduct: (productData) => API.post("/admin/products", productData),
   updateProduct: (id, productData) =>
     API.put(`/admin/products/${id}`, productData),
   deleteProduct: (id) => API.delete(`/admin/products/${id}`), // ✅ FIXED!
+
+  // Coupons
+  getCoupons: () => API.get("/admin/coupons"),
+  createCoupon: (couponData) => API.post("/admin/coupons", couponData),
+  updateCoupon: (id, couponData) => API.put(`/admin/coupons/${id}`, couponData),
+  deactivateCoupon: (id) => API.delete(`/admin/coupons/${id}`),
 };
 export const reviewApi = {
-  createReview: (data) => API.post("/reviews", data),
-  getProductReviews: (productId) => API.get(`/reviews/product/${productId}`),
+  createReview: (data) =>
+    API.post("/reviews", data, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+  getProductReviews: (productId, params = {}) =>
+    API.get(`/reviews/${productId}`, { params }),
   deleteReview: (id) => API.delete(`/reviews/${id}`),
+};
+
+export const couponApi = {
+  validate: (data) => API.post("/coupons/validate", data),
 };

@@ -18,10 +18,26 @@ const reviewSchema = new mongoose.Schema(
       required: true,
       min: 1,
       max: 5,
+      validate: {
+        validator: Number.isInteger,
+        message: "Rating must be a whole number from 1 to 5",
+      },
     },
     comment: {
       type: String,
       required: true,
+      trim: true,
+      maxlength: 2000,
+    },
+    images: {
+      type: [
+        {
+          _id: false,
+          url: { type: String, required: true },
+          publicId: { type: String, required: true },
+        },
+      ],
+      default: [],
     },
     isApproved: {
       type: Boolean,

@@ -63,7 +63,7 @@ passport.use(
           googleId: profile.id,
           avatar: profile.photos[0]?.value,
           authProvider: "google",
-          role: "user",
+          role: "customer",
           // No password needed for Google users
         });
 

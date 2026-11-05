@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { profileApi } from "../api/adminApi";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useToast } from "../components/ToastNotifications";
 
 const PLACEHOLDER = "https://placehold.co/80x80/e2e8f0/64748b?text=No+Img";
 
@@ -88,15 +89,8 @@ function Profile({ onUserUpdate }) {
 
   const [saving, setSaving] = useState(null); // 'profile' | 'password' | 'address'
   const [deleteId, setDeleteId] = useState(null); // address awaiting delete confirmation
-  const [toast, setToast] = useState(null);
-  const toastTimer = useRef(null);
+  const notify = useToast();
   const formRef = useRef(null);
-
-  const showToast = (text, type = "success") => {
-    clearTimeout(toastTimer.current);
-    setToast({ text, type });
-    toastTimer.current = setTimeout(() => setToast(null), 3200);
-  };
 
   /* ---------- Tab <-> URL sync (navbar links change ?tab= while on this page) ---------- */
   useEffect(() => {
@@ -110,7 +104,6 @@ function Profile({ onUserUpdate }) {
 
   useEffect(() => {
     fetchProfile();
-    return () => clearTimeout(toastTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -168,9 +161,9 @@ function Profile({ onUserUpdate }) {
       if (onUserUpdate) onUserUpdate(data.user);
       const stored = JSON.parse(localStorage.getItem("user") || "{}");
       localStorage.setItem("user", JSON.stringify({ ...stored, ...data.user }));
-      showToast(t("common.success"));
+      notify("success", t("common.success"));
     } catch (err) {
-      showToast(`${t("common.error")}: ${err.response?.data?.message || err.message}`, "error");
+      notify("error", `${t("common.error")}: ${err.response?.data?.message || err.message}`);
     } finally {
       setSaving(null);
     }
@@ -179,7 +172,7 @@ function Profile({ onUserUpdate }) {
   const handlePasswordChange = async (e) => {
     e.preventDefault();
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      showToast(t("auth.password_mismatch"), "error");
+      notify("error", t("auth.password_mismatch"));
       return;
     }
     try {
@@ -188,10 +181,10 @@ function Profile({ onUserUpdate }) {
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
       });
-      showToast(t("common.success"));
+      notify("success", t("common.success"));
       setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
     } catch (err) {
-      showToast(`${t("common.error")}: ${err.response?.data?.message || err.message}`, "error");
+      notify("error", `${t("common.error")}: ${err.response?.data?.message || err.message}`);
     } finally {
       setSaving(null);
     }
@@ -209,15 +202,15 @@ function Profile({ onUserUpdate }) {
       if (editingAddressId) {
         const { data } = await profileApi.updateAddress(editingAddressId, addressForm);
         setAddresses(data.addresses);
-        showToast(t("common.success"));
+        notify("success", t("common.success"));
       } else {
         const { data } = await profileApi.addAddress(addressForm);
         setAddresses(data.addresses);
-        showToast(t("common.success"));
+        notify("success", t("common.success"));
       }
       resetAddressForm();
     } catch (err) {
-      showToast(`${t("common.error")}: ${err.response?.data?.message || err.message}`, "error");
+      notify("error", `${t("common.error")}: ${err.response?.data?.message || err.message}`);
     } finally {
       setSaving(null);
     }
@@ -245,9 +238,9 @@ function Profile({ onUserUpdate }) {
       const { data } = await profileApi.deleteAddress(id);
       setAddresses(data.addresses);
       if (editingAddressId === id) resetAddressForm();
-      showToast(t("common.success"));
+      notify("success", t("common.success"));
     } catch (err) {
-      showToast(`${t("common.error")}: ${err.response?.data?.message || err.message}`, "error");
+      notify("error", `${t("common.error")}: ${err.response?.data?.message || err.message}`);
     }
   };
 
@@ -310,7 +303,13 @@ function Profile({ onUserUpdate }) {
           <div className="pf-who">
             <h1>{profile?.name}</h1>
             <p>{profile?.email}</p>
-            <span className="pf-role">{profile?.role === "admin" ? "🛡️ Admin" : "👤 Customer"}</span>
+            <span className="pf-role">
+              {profile?.role === "system_admin"
+                ? "🛡️ System admin"
+                : profile?.role === "business_owner"
+                  ? "🏪 Business owner"
+                  : "👤 Customer"}
+            </span>
           </div>
         </div>
       </header>
@@ -683,12 +682,6 @@ function Profile({ onUserUpdate }) {
         </div>
       </main>
 
-      {/* ================= TOAST ================= */}
-      {toast && (
-        <div className={`pf-toast ${toast.type}`} role="status">
-          {toast.type === "success" ? "✅" : "❌"} {toast.text}
-        </div>
-      )}
     </div>
   );
 }
@@ -841,12 +834,6 @@ const css = `
 .sk-line.short { width: 55%; }
 .sk-avatar { width: 96px; height: 96px; border-radius: 50%; background: rgba(255,255,255,.15); }
 @keyframes pfSk { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
-
-/* Toast */
-.pf-toast { position: fixed; bottom: 1.6rem; left: 50%; transform: translateX(-50%); z-index: 3000; padding: .9rem 1.6rem; border-radius: 999px; color: #fff; font-weight: 700; font-size: .92rem; box-shadow: 0 16px 35px rgba(0,0,0,.3); animation: pfToast .4s cubic-bezier(.2,.8,.2,1); max-width: calc(100vw - 2rem); }
-.pf-toast.success { background: linear-gradient(135deg, #059669, #10b981); }
-.pf-toast.error { background: linear-gradient(135deg, #dc2626, #ef4444); }
-@keyframes pfToast { from { opacity: 0; transform: translateX(-50%) translateY(30px); } to { opacity: 1; transform: translateX(-50%); } }
 
 @media (max-width: 640px) {
   .pf-hero-inner { flex-direction: column; text-align: center; }

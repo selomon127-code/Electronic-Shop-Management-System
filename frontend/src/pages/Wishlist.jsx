@@ -1,8 +1,10 @@
 // ecommerce-app/src/pages/Wishlist.jsx
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { wishlistApi } from "../api/adminApi";
+import { getDiscountedPrice } from "../utils/productPricing";
+import { useToast } from "../components/ToastNotifications";
 
 const PLACEHOLDER = "https://placehold.co/400x300/e2e8f0/64748b?text=No+Image";
 
@@ -16,20 +18,12 @@ function Wishlist({ addToCart }) {
   const [removingId, setRemovingId] = useState(null); // item playing exit animation
   const [showClearModal, setShowClearModal] = useState(false);
   const [clearing, setClearing] = useState(false);
-  const [toast, setToast] = useState(null); // { type: 'success' | 'error', text }
-  const toastTimer = useRef(null);
+  const toast = useToast();
 
   useEffect(() => {
     fetchWishlist();
-    return () => clearTimeout(toastTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const showToast = (text, type = "success") => {
-    clearTimeout(toastTimer.current);
-    setToast({ text, type });
-    toastTimer.current = setTimeout(() => setToast(null), 3000);
-  };
 
   const fetchWishlist = async () => {
     try {
@@ -38,7 +32,7 @@ function Wishlist({ addToCart }) {
       setWishlist(data.products || []);
     } catch (err) {
       console.error("❌ Fetch wishlist error:", err);
-      showToast(t("wishlist.failed_load"), "error");
+      toast("error", t("wishlist.failed_load"));
     } finally {
       setLoading(false);
     }
@@ -52,6 +46,7 @@ function Wishlist({ addToCart }) {
     id: item.productId,
     name: item.name,
     price: item.price,
+    discount: item.discount || 0,
     image: item.image,
     category: item.category,
     description: item.description,
@@ -67,11 +62,11 @@ function Wishlist({ addToCart }) {
       setTimeout(() => {
         setWishlist((prev) => prev.filter((item) => item.productId !== productId));
         setRemovingId(null);
-        showToast(t("wishlist.removed"));
+        toast("success", t("wishlist.removed"));
       }, 350);
     } catch (err) {
       setRemovingId(null);
-      showToast(`${t("wishlist.failed_remove")}: ${err.response?.data?.message || err.message}`, "error");
+      toast("error", `${t("wishlist.failed_remove")}: ${err.response?.data?.message || err.message}`);
     }
   };
 
@@ -91,11 +86,13 @@ function Wishlist({ addToCart }) {
   const handleAddAllToCart = () => {
     const available = wishlist.filter(isInStock);
     if (available.length === 0) {
-      showToast(t("wishlist.no_stock"), "error");
+      toast("error", t("wishlist.no_stock"));
       return;
     }
-    available.forEach((item) => addToCart(toCartItem(item)));
-    showToast(t("wishlist.items_added", { count: available.length }));
+    available.forEach((item) =>
+      addToCart(toCartItem(item), { showNotification: false }),
+    );
+    toast("success", t("wishlist.items_added", { count: available.length }));
   };
 
   const handleClearAll = async () => {
@@ -104,9 +101,9 @@ function Wishlist({ addToCart }) {
       await wishlistApi.clearWishlist();
       setWishlist([]);
       setShowClearModal(false);
-      showToast(t("wishlist.cleared"));
+      toast("success", t("wishlist.cleared"));
     } catch (err) {
-      showToast(`${t("wishlist.failed_clear")}: ${err.response?.data?.message || err.message}`, "error");
+      toast("error", `${t("wishlist.failed_clear")}: ${err.response?.data?.message || err.message}`);
     } finally {
       setClearing(false);
     }
@@ -204,11 +201,20 @@ function Wishlist({ addToCart }) {
 
                     <div className="wl-price-row">
                       <div className="wl-price">
-                        {Number(item.price || 0).toLocaleString(undefined, {
+                        {getDiscountedPrice(item).toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}{" "}
                         <small>ETB</small>
+                        {Number(item.discount) > 0 && (
+                          <div style={{ fontSize: ".8rem" }}>
+                            <span style={{ textDecoration: "line-through", color: "#64748b" }}>
+                              {Number(item.price || 0).toLocaleString()} ETB
+                            </span>
+                            {" "}
+                            <span style={{ color: "#dc2626" }}>-{item.discount}%</span>
+                          </div>
+                        )}
                       </div>
                       <div className={`wl-stock ${inStock ? "ok" : "no"}`}>
                         <span className="wl-dot" />
@@ -275,12 +281,6 @@ function Wishlist({ addToCart }) {
         </div>
       )}
 
-      {/* ================= TOAST ================= */}
-      {toast && (
-        <div className={`wl-toast ${toast.type}`} role="status">
-          {toast.type === "success" ? "✅" : "❌"} {toast.text}
-        </div>
-      )}
     </div>
   );
 }
@@ -384,12 +384,6 @@ const css = `
 .wl-modal h3 { margin: 0 0 .5rem; font-size: 1.35rem; font-weight: 800; }
 .wl-modal p { margin: 0 0 1.5rem; color: #64748b; line-height: 1.6; }
 .wl-modal-actions { display: flex; gap: .7rem; justify-content: center; }
-
-/* Toast */
-.wl-toast { position: fixed; bottom: 1.6rem; left: 50%; transform: translateX(-50%); z-index: 3000; padding: .9rem 1.6rem; border-radius: 999px; color: #fff; font-weight: 700; font-size: .92rem; box-shadow: 0 16px 35px rgba(0,0,0,.3); animation: wlToast .4s cubic-bezier(.2,.8,.2,1); max-width: calc(100vw - 2rem); }
-.wl-toast.success { background: linear-gradient(135deg, #059669, #10b981); }
-.wl-toast.error { background: linear-gradient(135deg, #dc2626, #ef4444); }
-@keyframes wlToast { from { opacity: 0; transform: translateX(-50%) translateY(30px); } to { opacity: 1; transform: translateX(-50%); } }
 
 @media (max-width: 560px) {
   .wl-main { padding: 1.8rem 1rem 3rem; }

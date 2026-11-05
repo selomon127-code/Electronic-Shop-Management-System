@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const Order = require("../models/Order");
 const Product = require("../models/Product");
+const Coupon = require("../models/Coupon");
+const { releaseCoupon } = require("../utils/couponPricing");
 const axios = require("axios");
 
 const { sendOrderConfirmation } = require("../utils/sendEmail");
@@ -37,13 +39,28 @@ router.post(
 
           if (!order)
             return res.status(200).json({ message: "Order not found" });
-          if (order.paymentStatus === "paid")
+          if (order.paymentStatus === "paid" || order.paymentStatus === "cancelled")
             return res.status(200).json({ message: "Already processed" });
 
           if (parseFloat(amount) !== order.totalPrice) {
             order.status = "cancelled";
-            order.paymentStatus = "failed";
+            order.paymentStatus = "cancelled";
             await order.save();
+            for (const item of order.products) {
+              if (item.product) {
+                await Product.findByIdAndUpdate(item.product._id, {
+                  $inc: { stock: item.quantity },
+                });
+              }
+            }
+            if (order.coupon?.couponId || order.coupon?.code) {
+              const coupon = order.coupon.couponId
+                ? await Coupon.findById(order.coupon.couponId)
+                : await Coupon.findOne({ code: order.coupon.code });
+              if (coupon) {
+                await releaseCoupon(coupon._id, order.user?._id, order._id);
+              }
+            }
             return res
               .status(200)
               .json({ message: "Amount mismatch, order cancelled" });

@@ -69,9 +69,9 @@ function Orders() {
   const handleStatusChange = async (orderId, newStatus) => {
     try {
       setUpdatingId(orderId);
-      await adminApi.updateOrderStatus(orderId, newStatus);
-      setOrders((prev) => prev.map((o) => (o._id === orderId ? { ...o, status: newStatus } : o)));
-      setSelectedOrder((o) => (o && o._id === orderId ? { ...o, status: newStatus } : o));
+      const { data } = await adminApi.updateOrderStatus(orderId, newStatus);
+      setOrders((prev) => prev.map((o) => (o._id === orderId ? { ...o, ...data.order } : o)));
+      setSelectedOrder((o) => (o && o._id === orderId ? { ...o, ...data.order } : o));
       toast("success", t("admin.order_status_changed", { id: shortId(orderId), status: t(`admin.status_${newStatus}`, { defaultValue: newStatus }) }));
     } catch (err) {
       toast("error", err.response?.data?.message || err.message || t("admin.failed_update_status"));

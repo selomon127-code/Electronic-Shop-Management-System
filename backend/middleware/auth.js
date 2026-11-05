@@ -12,19 +12,16 @@ const auth = async (req, res, next) => {
         .json({ message: "Unauthorized: No token provided" });
     }
 
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET is not configured.");
+      return res.status(500).json({ message: "Authentication is not configured." });
+    }
+
     // Verify token
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "super_secret_key_12345_change_in_production",
-    );
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    console.log("🔍 Auth middleware - Decoded token:", decoded);
-
-    // Attach user info to request (handle both 'id' and '_id' formats)
     req.userId = decoded.id || decoded._id || decoded.userId;
     req.user = decoded;
-
-    console.log("✅ Auth middleware - User ID extracted:", req.userId);
 
     next();
   } catch (error) {

@@ -1,61 +1,53 @@
 // ecommerce-app/src/layouts/AdminLayout.jsx
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import ThemeToggle from "../components/ThemeToggle";
 import LogoutConfirmationDialog from "../components/LogoutConfirmationDialog";
+import "./AdminLayout.css";
 
 function AdminLayout({ user, onLogout }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 900);
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 900);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
-  // 🔐 Redirect NON-ADMINS away from admin panel
   useEffect(() => {
-    // Wait for user to load (could be undefined, null, or object)
-    if (user === undefined) return; // Still loading
-    
-    if (!user) {
-      navigate("/", { replace: true });
-    } else if (user.role !== "admin") {
-      console.log("❌ Admin access denied for user:", user);
-      navigate("/", { replace: true });
-    } else {
-      console.log("✅ Admin access granted for:", user.email);
-    }
-  }, [user, navigate]);
+    const handleResize = () => {
+      const mobile = window.innerWidth <= 900;
+      if (mobile !== isMobile) {
+        setIsMobile(mobile);
+        setSidebarOpen(!mobile);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [isMobile]);
 
-  // Show loading while auth is being checked
-  if (user === undefined) {
-    return (
-      <div style={{ 
-        minHeight: "100vh", 
-        display: "flex", 
-        alignItems: "center", 
-        justifyContent: "center",
-        background: "#f8f9fa"
-      }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "2rem", marginBottom: "1rem" }}>🔐</div>
-          <p style={{ color: "#666" }}>{t("admin.access_check")}</p>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!isMobile || !sidebarOpen) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setSidebarOpen(false);
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isMobile, sidebarOpen]);
 
-  // If user is null or not admin, don't render (will redirect)
-  if (!user || user.role !== "admin") {
-    return null;
-  }
-
-  const adminMenuItems = [
-    { path: "/admin/dashboard", label: t("nav.dashboard"), icon: "📊" },
-    { path: "/admin/orders", label: t("nav.orders"), icon: "📦" },
-    { path: "/admin/products", label: t("nav.products"), icon: "🛍️" },
-    { path: "/admin/users", label: t("admin.users"), icon: "👥" },
-  ];
+  const isBusinessOwner = user?.role === "business_owner";
+  const menuItems = isBusinessOwner
+    ? [
+        { path: "/admin/dashboard", label: t("nav.dashboard"), icon: "📊" },
+        { path: "/admin/orders", label: t("nav.orders"), icon: "📦" },
+        { path: "/admin/products", label: t("nav.products"), icon: "🛍️" },
+        { path: "/admin/coupons", label: t("admin.coupons"), icon: "🏷️" },
+        { path: "/admin/reports", label: t("admin.reports"), icon: "📈" },
+      ]
+    : [
+        { path: "/admin/system", label: "System health", icon: "🖥️" },
+        { path: "/admin/users", label: t("admin.users"), icon: "👥" },
+      ];
 
   const handleLogout = () => {
     if (onLogout) {
@@ -72,7 +64,15 @@ function AdminLayout({ user, onLogout }) {
   };
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#f5f6fa" }}>
+    <div className="admin-shell" style={{ display: "flex", minHeight: "100vh", background: "#f5f6fa" }}>
+      {isMobile && sidebarOpen && (
+        <button
+          type="button"
+          className="admin-sidebar-backdrop"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Close admin navigation"
+        />
+      )}
       {/* Left Sidebar */}
       <aside style={{
         width: sidebarOpen ? "260px" : "80px",
@@ -88,7 +88,7 @@ function AdminLayout({ user, onLogout }) {
         top: 0,
         zIndex: 1000,
         boxShadow: "2px 0 10px rgba(0,0,0,0.1)"
-      }}>
+      }} className={`admin-sidebar ${isMobile && sidebarOpen ? "mobile-open" : ""}`} aria-hidden={isMobile && !sidebarOpen}>
         {/* Sidebar Header */}
         <div style={{
           padding: "1.5rem 1rem",
@@ -99,12 +99,14 @@ function AdminLayout({ user, onLogout }) {
         }}>
           {sidebarOpen && (
             <h2 style={{ margin: 0, fontSize: "1.3rem", fontWeight: "700" }}>
-              🛠️ {t("admin.panel")}
+              {isBusinessOwner ? `🏪 ${t("admin.business_management")}` : `🛡️ ${t("admin.system_administration")}`}
             </h2>
           )}
           <ThemeToggle />
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-label={isMobile ? "Close admin navigation" : sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+            aria-expanded={sidebarOpen}
             style={{
               background: "rgba(255,255,255,0.1)",
               border: "none",
@@ -133,7 +135,7 @@ function AdminLayout({ user, onLogout }) {
               <span style={{ fontWeight: "600", fontSize: "0.95rem" }}>
                 👤 {user.name || t("admin.admin_role")}
               </span>
-              {user.role === "admin" && (
+              {user.role && (
                 <span style={{
                   padding: "0.2rem 0.5rem",
                   background: "#28a745",
@@ -143,7 +145,7 @@ function AdminLayout({ user, onLogout }) {
                   fontWeight: "600",
                   textTransform: "uppercase"
                 }}>
-                  {t("admin.admin_role")}
+                  {isBusinessOwner ? t("admin.business_owner_role") : t("admin.system_admin_role")}
                 </span>
               )}
             </div>
@@ -155,7 +157,7 @@ function AdminLayout({ user, onLogout }) {
 
         {/* Navigation Menu */}
         <nav style={{ flex: 1, padding: "1rem 0.5rem", overflowY: "auto" }}>
-          {adminMenuItems.map((item) => {
+          {menuItems.map((item) => {
             const isActive = location.pathname === item.path || 
                             (item.path !== "/admin/dashboard" && location.pathname.startsWith(item.path));
             
@@ -163,6 +165,9 @@ function AdminLayout({ user, onLogout }) {
               <Link
                 key={item.path}
                 to={item.path}
+                onClick={() => {
+                  if (isMobile) setSidebarOpen(false);
+                }}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -240,7 +245,15 @@ function AdminLayout({ user, onLogout }) {
         padding: "2rem",
         minHeight: "100vh",
         width: `calc(100% - ${sidebarOpen ? "260px" : "80px"})`
-      }}>
+      }} className="admin-main">
+        {isMobile && (
+          <div className="admin-mobile-bar">
+            <button type="button" className="admin-menu-toggle" onClick={() => setSidebarOpen(true)} aria-label="Open admin navigation">
+              ☰ <span>Menu</span>
+            </button>
+            <ThemeToggle />
+          </div>
+        )}
         <Outlet />
       </main>
       {logoutDialogOpen && (

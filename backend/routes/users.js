@@ -2,46 +2,17 @@
 const router = require("express").Router();
 const User = require("../models/User");
 const Order = require("../models/Order");
-const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-
-// ✅ Auth middleware
-const auth = (req, res, next) => {
-  const token = req.header("Authorization")?.replace("Bearer ", "");
-  if (!token) return res.status(401).json({ message: "No token provided" });
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = decoded.id || decoded._id || decoded.userId;
-    next();
-  } catch (err) {
-    return res.status(401).json({ message: "Invalid token" });
-  }
-};
-
-// ✅ Admin middleware
-const adminAuth = async (req, res, next) => {
-  try {
-    const token = req.header("Authorization")?.replace("Bearer ", "");
-    if (!token) return res.status(401).json({ message: "No token provided" });
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = decoded.id || decoded._id || decoded.userId;
-
-    const user = await User.findById(req.userId).select("role");
-    if (!user || user.role !== "admin") {
-      return res.status(403).json({ message: "Admin access required" });
-    }
-    next();
-  } catch (err) {
-    return res.status(401).json({ message: "Invalid token" });
-  }
-};
+const auth = require("../middleware/auth");
+const { restrictTo } = require("../middleware/adminAuth");
+const systemAdmin = restrictTo("system_admin");
 
 // ============================================
 // ADMIN ROUTES
 // ============================================
 
 // ✅ GET all users (admin only)
-router.get("/", adminAuth, async (req, res) => {
+router.get("/", auth, systemAdmin, async (req, res) => {
   try {
     const users = await User.find().select("-password");
     res.json(users);
@@ -51,8 +22,11 @@ router.get("/", adminAuth, async (req, res) => {
 });
 
 // ✅ DELETE user (admin only)
-router.delete("/:id", adminAuth, async (req, res) => {
+router.delete("/:id", auth, systemAdmin, async (req, res) => {
   try {
+    if (req.params.id === req.userId) {
+      return res.status(400).json({ message: "Cannot delete your own account." });
+    }
     const deleted = await User.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "User not found" });
     res.json({ message: "User deleted" });
@@ -62,11 +36,14 @@ router.delete("/:id", adminAuth, async (req, res) => {
 });
 
 // ✅ UPDATE user role (admin only)
-router.put("/:id/role", adminAuth, async (req, res) => {
+router.put("/:id/role", auth, systemAdmin, async (req, res) => {
   try {
     const { role } = req.body;
-    if (!["user", "admin"].includes(role)) {
+    if (!["customer", "business_owner", "system_admin"].includes(role)) {
       return res.status(400).json({ message: "Invalid role" });
+    }
+    if (req.params.id === req.userId) {
+      return res.status(400).json({ message: "Cannot change your own role." });
     }
     const user = await User.findByIdAndUpdate(
       req.params.id,

@@ -1,0 +1,29 @@
+$kind: http-request
+url: "{{baseUrl}}/api/products/{{productId}}"
+method: GET
+scripts:
+  - type: beforeRequest
+    code: pm.environment.unset('productId');
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test('returns HTTP 200', function () {
+        pm.response.to.have.status(200);
+      });
+
+      const products = pm.response.json();
+
+      pm.test('returns at least one product', function () {
+        pm.expect(products).to.be.an('array').that.is.not.empty;
+        pm.expect(products[0]._id).to.be.a('string').and.not.empty;
+      });
+
+      if (Array.isArray(products) && products[0]?._id) {
+        pm.environment.set('productId', products[0]._id);
+      } else {
+        pm.environment.unset('productId');
+        console.error('No product ID returned; check the product list and active environment.');
+      }
+    language: text/javascript
+examples: .resources/List products.resources/examples
+order: 1000

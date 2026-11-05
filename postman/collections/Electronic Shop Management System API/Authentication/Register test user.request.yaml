@@ -1,0 +1,36 @@
+$kind: http-request
+url: "{{baseUrl}}/api/auth/register"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "name": "Postman Test User",
+      "email": "{{testEmail}}",
+      "password": "{{testPassword}}"
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const email = `postman-${Date.now()}-${Math.floor(Math.random() * 10000)}@example.test`;
+      pm.environment.set('testEmail', email);
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test('creates the test account', function () {
+        pm.response.to.have.status(201);
+      });
+
+      const body = pm.response.json();
+
+      pm.test('returns a user and bearer token', function () {
+        pm.expect(body.user).to.be.an('object');
+        pm.expect(body.token).to.be.a('string').and.not.empty;
+      });
+
+      if (body.token) pm.environment.set('userToken', body.token);
+      if (body.user?.id) pm.environment.set('userId', body.user.id);
+    language: text/javascript
+order: 1000

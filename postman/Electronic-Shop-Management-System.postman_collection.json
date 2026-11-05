@@ -1,0 +1,376 @@
+{
+  "info": {
+    "_postman_id": "4b7e0f6e-91da-4a14-9f35-5d2f85747a30",
+    "name": "Electronic Shop Management System API",
+    "description": "Smoke and API contract tests for the Express backend. Run requests in order against a dedicated test database. Registration creates a new user on each run.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{userToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "testPassword",
+      "value": "PostmanTest123!",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns HTTP 200 when the service and database are healthy', function () { pm.response.to.have.status(200); });",
+                  "pm.test('reports service and database health', function () { const body = pm.response.json(); pm.expect(body.status).to.eql('ok'); pm.expect(body.database).to.eql('connected'); pm.expect(body.uptime).to.be.a('number'); pm.expect(body.timestamp).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "API health check",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('confirms the API is running', function () { pm.expect(pm.response.json().message).to.include('API running'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "List products",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('returns a product array', function () { pm.expect(body).to.be.an('array'); });",
+                  "if (pm.response.code === 200 && Array.isArray(body)) {",
+                  "  const candidates = body.filter((product) => /^[a-f0-9]{24}$/i.test(product._id || ''));",
+                  "  const selectFetchableProduct = (index) => {",
+                  "    if (index >= candidates.length) {",
+                  "      pm.environment.unset('productId');",
+                  "      console.error('No listed product was found by the product detail endpoint.');",
+                  "      return;",
+                  "    }",
+                  "    const id = candidates[index]._id;",
+                  "    pm.sendRequest({ url: pm.environment.get('baseUrl') + '/api/products/' + id, method: 'GET' }, (error, response) => {",
+                  "      if (!error && response && response.code === 200 && response.json()._id === id) {",
+                  "        pm.environment.set('productId', id);",
+                  "        return;",
+                  "      }",
+                  "      selectFetchableProduct(index + 1);",
+                  "    });",
+                  "  };",
+                  "  selectFetchableProduct(0);",
+                  "} else {",
+                  "  pm.environment.unset('productId');",
+                  "  console.error('Product list failed; inspect the request URL and API response.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/products"
+          }
+        },
+        {
+          "name": "Get product by ID (requires productId)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const productId = pm.environment.get('productId');",
+                  "if (!/^[a-f0-9]{24}$/i.test(productId || '')) {",
+                  "  console.error('productId is missing or invalid. Select the Local environment and run List products first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('returns the requested product', function () { pm.expect(pm.response.json()._id).to.eql(pm.environment.get('productId')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/products/{{productId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register test user",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.unset('userToken');",
+                  "pm.environment.unset('userId');",
+                  "const email = 'postman-' + Date.now() + '-' + Math.floor(Math.random() * 10000) + '@example.test';",
+                  "pm.environment.set('testEmail', email);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('creates the test account', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.test('returns a user and bearer token', function () { pm.expect(body.user).to.be.an('object'); pm.expect(body.token).to.be.a('string').and.match(/^[^.]+\\.[^.]+\\.[^.]+$/); });",
+                  "if (pm.response.code === 201 && body.token) pm.environment.set('userToken', body.token);",
+                  "if (body.user && body.user.id) pm.environment.set('userId', body.user.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test User\",\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/register"
+          }
+        },
+        {
+          "name": "Login test user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.unset('userToken');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('logs in successfully', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('returns a bearer token', function () { pm.expect(body.token).to.be.a('string').and.match(/^[^.]+\\.[^.]+\\.[^.]+$/); });",
+                  "if (pm.response.code === 200 && body.token) pm.environment.set('userToken', body.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get current user",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/auth/me"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('returns the authenticated user', function () { pm.expect(pm.response.json().email).to.eql(pm.environment.get('testEmail')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject missing registration fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"invalid@example.test\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/register"
+          },
+          "auth": {
+            "type": "noauth"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('rejects invalid registration with HTTP 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('returns a validation message', function () { pm.expect(pm.response.json().message).to.be.a('string').and.not.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject missing auth token",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/auth/me"
+          },
+          "auth": {
+            "type": "noauth"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('rejects unauthenticated request with HTTP 401', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Authenticated user",
+      "item": [
+        {
+          "name": "List my orders",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/orders"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('returns an orders array', function () { pm.expect(pm.response.json()).to.be.an('array'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get my wishlist",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/wishlist"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('returns wishlist products', function () { pm.expect(pm.response.json().products).to.be.an('array'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Authorization",
+      "item": [
+        {
+          "name": "Regular user cannot access admin dashboard",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/dashboard"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('forbids regular users with HTTP 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

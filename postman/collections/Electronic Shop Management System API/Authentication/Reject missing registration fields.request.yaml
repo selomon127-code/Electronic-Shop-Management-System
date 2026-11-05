@@ -1,0 +1,20 @@
+$kind: http-request
+url: "{{baseUrl}}/api/auth/register"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+        "name": "John Doe",
+        "email": "unique.user.12345@example.com",
+        "password": "password123"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('rejects invalid registration with HTTP 400', function () { pm.response.to.have.status(400); });
+      pm.test('returns a validation message', function () { pm.expect(pm.response.json().message).to.be.a('string').and.not.empty; });
+    language: text/javascript
+order: 4000

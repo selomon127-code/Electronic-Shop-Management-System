@@ -23,6 +23,16 @@ const wishlistSchema = new mongoose.Schema(
           type: Number,
           required: true,
         },
+        discount: {
+          type: Number,
+          default: 0,
+          min: 0,
+          max: 100,
+          validate: {
+            validator: Number.isInteger,
+            message: "Discount must be a whole percentage",
+          },
+        },
         image: {
           type: String,
           default:

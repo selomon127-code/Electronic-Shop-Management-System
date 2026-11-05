@@ -61,6 +61,15 @@ function Navbar({ cartCount, user, handleLogout }) {
     setProfileMenuOpen(false);
   }, [location.pathname, location.search]);
 
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [menuOpen]);
+
   /* Cart badge "pop" when the count changes */
   useEffect(() => {
     if (prevCount.current !== cartCount) {
@@ -92,7 +101,8 @@ function Navbar({ cartCount, user, handleLogout }) {
   };
 
   const initial = (user?.name || user?.email || "U").charAt(0).toUpperCase();
-  const isAdmin = user?.role === "admin";
+  const isManagementUser = ["business_owner", "system_admin"].includes(user?.role);
+  const managementPath = user?.role === "system_admin" ? "/admin/system" : "/admin/dashboard";
 
   const navClass = ({ isActive }) => `nb-link ${isActive ? "active" : ""}`;
 
@@ -129,7 +139,7 @@ function Navbar({ cartCount, user, handleLogout }) {
           <ThemeToggle />
 
           {/* Cart icon always visible for customers (also on mobile) */}
-          {user && !isAdmin && mobile && (
+          {user && !isManagementUser && mobile && (
             <button className="nb-cart" onClick={() => navigate("/cart")} aria-label="Cart">
               🛒
               {cartCount > 0 && <span className={`nb-badge ${bump ? "pop" : ""}`}>{cartCount}</span>}
@@ -140,8 +150,9 @@ function Navbar({ cartCount, user, handleLogout }) {
             <button
               className={`nb-burger ${menuOpen ? "open" : ""}`}
               onClick={() => setMenuOpen(!menuOpen)}
-              aria-label="Toggle menu"
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
               aria-expanded={menuOpen}
+              aria-controls="mobile-navigation"
             >
               <span />
               <span />
@@ -151,7 +162,7 @@ function Navbar({ cartCount, user, handleLogout }) {
 
           {!mobile && (
             <nav className="nb-links">
-              {user && !isAdmin && (
+              {user && !isManagementUser && (
                 <>
                   <NavLink to="/" end className={navClass}>{t("nav.home")}</NavLink>
                   <NavLink to="/products" className={navClass}>{t("nav.products")}</NavLink>
@@ -197,11 +208,22 @@ function Navbar({ cartCount, user, handleLogout }) {
                 </>
               )}
 
-              {isAdmin && (
+              {isManagementUser && (
                 <>
-                  <NavLink to="/admin/dashboard" className={navClass}>📊 {t("nav.dashboard")}</NavLink>
-                  <NavLink to="/admin/products" className={navClass}>🛍️ {t("nav.products")}</NavLink>
-                  <NavLink to="/admin/orders" className={navClass}>🛠️ {t("nav.orders")}</NavLink>
+                  <NavLink to={managementPath} className={navClass}>
+                    {user.role === "system_admin" ? `🖥️ ${t("admin.system_health")}` : `📊 ${t("nav.dashboard")}`}
+                  </NavLink>
+                  {user.role === "business_owner" && (
+                    <>
+                      <NavLink to="/admin/products" className={navClass}>🛍️ {t("nav.products")}</NavLink>
+                      <NavLink to="/admin/orders" className={navClass}>🛠️ {t("nav.orders")}</NavLink>
+                      <NavLink to="/admin/coupons" className={navClass}>🏷️ {t("admin.coupons")}</NavLink>
+                      <NavLink to="/admin/reports" className={navClass}>📈 {t("admin.reports")}</NavLink>
+                    </>
+                  )}
+                  {user.role === "system_admin" && (
+                    <NavLink to="/admin/users" className={navClass}>👥 {t("admin.users")}</NavLink>
+                  )}
                   <button onClick={logout} className="nb-btn nb-btn-danger">{t("nav.logout")}</button>
                 </>
               )}
@@ -221,12 +243,20 @@ function Navbar({ cartCount, user, handleLogout }) {
 
       {/* Mobile menu */}
       {mobile && (
-        <div className={`nb-mobile ${menuOpen ? "show" : ""}`}>
-          <div className="nb-mobile-inner">
+        <>
+        <button
+          type="button"
+          className={`nb-mobile-backdrop ${menuOpen ? "show" : ""}`}
+          onClick={() => setMenuOpen(false)}
+          aria-label="Close navigation menu"
+          tabIndex={menuOpen ? 0 : -1}
+        />
+        <nav id="mobile-navigation" className={`nb-mobile ${menuOpen ? "show" : ""}`} aria-hidden={!menuOpen}>
+          <div className="nb-mobile-inner" inert={!menuOpen}>
             <LanguageSwitcher />
             {SearchForm}
 
-            {user && !isAdmin && (
+            {user && !isManagementUser && (
               <>
                 <NavLink to="/" end className="nb-m-link">🏠 {t("nav.home")}</NavLink>
                 <NavLink to="/products" className="nb-m-link">🛍️ {t("nav.products")}</NavLink>
@@ -243,11 +273,22 @@ function Navbar({ cartCount, user, handleLogout }) {
               </>
             )}
 
-            {isAdmin && (
+            {isManagementUser && (
               <>
-                <NavLink to="/admin/dashboard" className="nb-m-link">📊 {t("nav.dashboard")}</NavLink>
-                <NavLink to="/admin/products" className="nb-m-link">🛍️ {t("nav.products")}</NavLink>
-                <NavLink to="/admin/orders" className="nb-m-link">🛠️ {t("nav.orders")}</NavLink>
+                <NavLink to={managementPath} className="nb-m-link">
+                  {user.role === "system_admin" ? `🖥️ ${t("admin.system_health")}` : `📊 ${t("nav.dashboard")}`}
+                </NavLink>
+                {user.role === "business_owner" && (
+                  <>
+                    <NavLink to="/admin/products" className="nb-m-link">🛍️ {t("nav.products")}</NavLink>
+                    <NavLink to="/admin/orders" className="nb-m-link">🛠️ {t("nav.orders")}</NavLink>
+                    <NavLink to="/admin/coupons" className="nb-m-link">🏷️ {t("admin.coupons")}</NavLink>
+                    <NavLink to="/admin/reports" className="nb-m-link">📈 {t("admin.reports")}</NavLink>
+                  </>
+                )}
+                {user.role === "system_admin" && (
+                  <NavLink to="/admin/users" className="nb-m-link">👥 {t("admin.users")}</NavLink>
+                )}
                 <button onClick={logout} className="nb-btn nb-btn-danger block">🚪 {t("nav.logout")}</button>
               </>
             )}
@@ -261,7 +302,8 @@ function Navbar({ cartCount, user, handleLogout }) {
 
             <div className="nb-m-theme"><ThemeToggle /></div>
           </div>
-        </div>
+        </nav>
+        </>
       )}
       {logoutDialogOpen && (
         <LogoutConfirmationDialog
@@ -351,13 +393,14 @@ const css = `
 .nb-burger.open span:nth-child(2) { opacity: 0; }
 .nb-burger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
-/* Mobile menu (animated height via grid trick) */
-.nb-mobile { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .4s cubic-bezier(.2,.8,.2,1); background: #0f172a; }
-.nb-mobile.show { grid-template-rows: 1fr; border-top: 1px solid rgba(255,255,255,.06); }
-.nb-mobile-inner { overflow: hidden; min-height: 0; padding: 0 1.2rem; }
-.nb-mobile.show .nb-mobile-inner { padding: 1rem 1.2rem 1.4rem; }
+/* Mobile navigation drawer */
+.nb-mobile-backdrop { position: fixed; inset: 0; z-index: 999; width: 100%; height: 100%; border: 0; padding: 0; background: rgba(15,23,42,.58); opacity: 0; visibility: hidden; transition: opacity .25s ease, visibility .25s ease; }
+.nb-mobile-backdrop.show { opacity: 1; visibility: visible; }
+.nb-mobile { position: fixed; z-index: 1001; top: 0; right: 0; bottom: 0; width: min(88vw, 380px); overflow-y: auto; overscroll-behavior: contain; background: #0f172a; box-shadow: -16px 0 40px rgba(0,0,0,.24); clip-path: inset(0 0 0 100%); visibility: hidden; transition: clip-path .3s cubic-bezier(.2,.8,.2,1), visibility 0s linear .3s; }
+.nb-mobile.show { clip-path: inset(0); visibility: visible; transition: clip-path .3s cubic-bezier(.2,.8,.2,1), visibility 0s; border-left: 1px solid rgba(255,255,255,.08); }
+.nb-mobile-inner { min-height: 100%; padding: 1.2rem; }
 .nb-mobile .nb-search { max-width: none; margin-bottom: .8rem; }
-.nb-m-link { display: flex; align-items: center; justify-content: space-between; padding: .8rem .9rem; border-radius: 12px; color: rgba(255,255,255,.88); text-decoration: none; font-size: 1rem; transition: background .2s, padding-left .2s; }
+.nb-m-link { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: .8rem .9rem; border-radius: 12px; color: rgba(255,255,255,.88); text-decoration: none; font-size: 1rem; transition: background .2s, padding-left .2s; }
 .nb-m-link:hover, .nb-m-link.active { background: rgba(255,255,255,.08); padding-left: 1.2rem; color: #fff; }
 .nb-m-link.active { border-left: 3px solid #818cf8; }
 .nb-m-divider { height: 1px; background: rgba(255,255,255,.1); margin: .6rem 0; }
@@ -365,6 +408,13 @@ const css = `
 
 @media (prefers-reduced-motion: reduce) {
   .nb, .nb *, .nb-dropdown { animation: none !important; transition: none !important; }
+}
+
+@media (max-width: 480px) {
+  .nb-inner { padding: .65rem .85rem; gap: .6rem; }
+  .nb-logo-image { width: min(48vw, 190px); }
+  .nb-right { gap: .45rem; }
+  .nb-burger, .nb-cart { width: 44px; height: 44px; }
 }
 `;
 

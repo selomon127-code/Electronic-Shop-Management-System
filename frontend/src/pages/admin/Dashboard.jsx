@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { adminApi } from "../../api/adminApi";
+import AIAnalyticsWidget from "./AIAnalyticsWidget";
 
 /* ----------------------------- Helpers ----------------------------- */
 
@@ -138,6 +139,22 @@ const CSS = `
 .db-avatar { display:inline-flex; width:28px; height:28px; border-radius:50%; background:#e0e7ff; color:#4338ca;
   align-items:center; justify-content:center; font-size:.75rem; font-weight:700; margin-right:.6rem; vertical-align:middle; }
 .db-empty { text-align:center; color:var(--muted); padding:2.5rem 1rem; }
+.db-revenue-grid { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(240px,1fr); gap:1rem; margin-bottom:1.5rem; }
+.db-chart { width:100%; overflow:visible; display:block; }
+.db-chart-label { fill:#64748b; font-size:11px; }
+.db-chart-grid { stroke:#e2e8f0; stroke-dasharray:3 4; }
+.db-chart-line { fill:none; stroke:#4f46e5; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
+.db-chart-area { fill:url(#revenue-gradient); }
+.db-chart-point { fill:#fff; stroke:#4f46e5; stroke-width:2; }
+.db-chart-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.75rem; margin-bottom:1rem; }
+.db-chart-stat { padding:.75rem; border-radius:10px; background:#f8fafc; }
+.db-chart-stat span { display:block; color:#64748b; font-size:.75rem; font-weight:600; }
+.db-chart-stat b { display:block; margin-top:.25rem; font-size:1rem; }
+.db-chart-select { padding:.5rem .7rem; border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:8px; font-weight:600; }
+.db-channel-row { display:grid; gap:.35rem; margin-bottom:1rem; }
+.db-channel-head { display:flex; justify-content:space-between; gap:.5rem; font-size:.85rem; }
+.db-channel-track { height:8px; background:#eef2ff; border-radius:99px; overflow:hidden; }
+.db-channel-track i { display:block; height:100%; background:#4f46e5; border-radius:99px; }
 
 .db-skel { background:linear-gradient(90deg,#eef2f7 25%,#f8fafc 50%,#eef2f7 75%); background-size:200% 100%;
   animation: db-shim 1.3s infinite; border-radius:8px; }
@@ -148,7 +165,8 @@ const CSS = `
 .db-error span { flex:1; font-weight:500; }
 
 @media (max-width:1100px) { .db-grid-kpi { grid-template-columns:repeat(2,1fr); } .db-row { grid-template-columns:1fr; } }
-@media (max-width:560px) { .db-grid-kpi { grid-template-columns:1fr; } .db-title { font-size:1.4rem; } }
+@media (max-width:900px) { .db-revenue-grid { grid-template-columns:1fr; } }
+@media (max-width:560px) { .db-grid-kpi { grid-template-columns:1fr; } .db-title { font-size:1.4rem; } .db-chart-stats { grid-template-columns:1fr; } }
 `;
 
 /* --------------------------- Sub-components ------------------------ */
@@ -262,6 +280,169 @@ function StatusDonut({ ordersByStatus }) {
   );
 }
 
+function RevenueLineChart({ series, locale, currency, noDataLabel }) {
+  const width = 760;
+  const height = 260;
+  const padding = { top: 16, right: 12, bottom: 38, left: 78 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  const maxValue = Math.max(1, ...series.map((item) => item.revenue || 0));
+  const step = Math.pow(10, Math.floor(Math.log10(maxValue)));
+  const axisMax = Math.ceil(maxValue / step) * step || 1;
+  const points = series.map((item, index) => ({
+    ...item,
+    x: padding.left + (series.length === 1 ? chartWidth / 2 : (index / (series.length - 1)) * chartWidth),
+    y: padding.top + chartHeight - (item.revenue / axisMax) * chartHeight,
+  }));
+  const line = points.map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`).join(" ");
+  const area = points.length
+    ? `${line} L${points[points.length - 1].x},${padding.top + chartHeight} L${points[0].x},${padding.top + chartHeight} Z`
+    : "";
+  const labelIndexes = new Set(
+    Array.from({ length: Math.min(6, series.length) }, (_, index) =>
+      Math.round((index * (series.length - 1)) / Math.max(1, Math.min(6, series.length) - 1)),
+    ),
+  );
+  const formatPeriod = (period) => {
+    const date = new Date(`${period}${period.length === 7 ? "-01" : ""}T00:00:00Z`);
+    return date.toLocaleDateString(locale, period.length === 7
+      ? { month: "short", year: "2-digit", timeZone: "UTC" }
+      : { day: "numeric", month: "short", timeZone: "UTC" });
+  };
+  const formatAxisValue = (value) => {
+    if (value >= 1_000_000) return `${(value / 1_000_000).toLocaleString(locale, { maximumFractionDigits: 1 })}m`;
+    if (value >= 1_000) return `${(value / 1_000).toLocaleString(locale, { maximumFractionDigits: 1 })}k`;
+    return value.toLocaleString(locale, { maximumFractionDigits: 0 });
+  };
+
+  if (!series.length) return <div className="db-empty">{noDataLabel}</div>;
+
+  return (
+    <svg
+      className="db-chart"
+      viewBox={`0 0 ${width} ${height}`}
+      role="img"
+      aria-label="Revenue over time"
+    >
+      <defs>
+        <linearGradient id="revenue-gradient" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#6366f1" stopOpacity=".24" />
+          <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {[0, 1, 2, 3].map((index) => {
+        const value = (axisMax * index) / 3;
+        const y = padding.top + chartHeight - (index / 3) * chartHeight;
+        return (
+          <g key={index}>
+            <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} className="db-chart-grid" />
+            <text x={padding.left - 10} y={y + 4} textAnchor="end" className="db-chart-label">
+              {formatAxisValue(value)}
+            </text>
+          </g>
+        );
+      })}
+      {area && <path d={area} className="db-chart-area" />}
+      {line && <path d={line} className="db-chart-line" />}
+      {points.map((point, index) => (
+        <g key={point.period}>
+          <circle cx={point.x} cy={point.y} r="4" className="db-chart-point">
+            <title>{`${formatPeriod(point.period)}: ${new Intl.NumberFormat(locale, { style: "currency", currency }).format(point.revenue)} · ${point.orders} orders`}</title>
+          </circle>
+          {labelIndexes.has(index) && (
+            <text x={point.x} y={height - 12} textAnchor="middle" className="db-chart-label">
+              {formatPeriod(point.period)}
+            </text>
+          )}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+function RevenueAnalytics({ data, loading, error, range, onRangeChange, locale }) {
+  const { t } = useTranslation();
+  const currency = data?.currency || "ETB";
+  const money = (value) =>
+    `${new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value) || 0)} ${currency}`;
+  const paymentMethods = data?.paymentBreakdown || [];
+  const maxPaymentRevenue = Math.max(1, ...paymentMethods.map((item) => item.revenue || 0));
+  const rangeOptions = [
+    { value: "7d", label: t("admin.revenue_last_7_days") },
+    { value: "30d", label: t("admin.revenue_last_30_days") },
+    { value: "12m", label: t("admin.revenue_last_12_months") },
+  ];
+
+  return (
+    <section className="db-revenue-grid" aria-label={t("admin.revenue_analytics")}>
+      <div className="db-card db-panel">
+        <div className="db-panel-head">
+          <div>
+            <h3 className="db-panel-title">{t("admin.revenue_analytics")}</h3>
+            <span className="db-sub">{t("admin.paid_orders_by_order_date")}</span>
+          </div>
+          <label>
+            <span className="db-chart-label" style={{ marginRight: ".45rem" }}>{t("admin.period")}</span>
+            <select
+              className="db-chart-select"
+              aria-label={t("admin.revenue_chart_period")}
+              value={range}
+              onChange={(event) => onRangeChange(event.target.value)}
+            >
+              {rangeOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="db-chart-stats">
+          <div className="db-chart-stat"><span>{t("admin.revenue")}</span><b>{money(data?.totalRevenue)}</b></div>
+          <div className="db-chart-stat"><span>{t("admin.paid_orders")}</span><b>{num(data?.totalOrders)}</b></div>
+          <div className="db-chart-stat"><span>{t("admin.average_order_value")}</span><b>{money(data?.averageOrderValue)}</b></div>
+        </div>
+        {error ? (
+          <div className="db-error" role="alert">{error}</div>
+        ) : loading ? (
+          <div className="db-skel" style={{ height: 260, borderRadius: 10 }} aria-label="Loading revenue chart" />
+        ) : (
+          <RevenueLineChart
+            series={data?.revenueSeries || []}
+            locale={locale}
+            currency={currency}
+            noDataLabel={t("admin.no_revenue_data")}
+          />
+        )}
+      </div>
+
+      <div className="db-card db-panel">
+        <div className="db-panel-head">
+          <h3 className="db-panel-title">{t("admin.revenue_by_payment_method")}</h3>
+        </div>
+        {error ? (
+          <div className="db-empty">{t("admin.payment_breakdown_unavailable")}</div>
+        ) : loading ? (
+          <div className="db-skel" style={{ height: 150, borderRadius: 10 }} aria-label="Loading payment breakdown" />
+        ) : paymentMethods.length ? (
+          paymentMethods.map((item) => (
+            <div className="db-channel-row" key={item.method}>
+              <div className="db-channel-head">
+                <strong>{item.method === "cod" ? t("admin.cash_on_delivery") : item.method === "chapa" ? "Chapa" : item.method}</strong>
+                <span>{money(item.revenue)}</span>
+              </div>
+              <div className="db-channel-track">
+                <i style={{ width: `${(item.revenue / maxPaymentRevenue) * 100}%` }} />
+              </div>
+              <span className="db-chart-label">{t("admin.paid_orders_count", { count: num(item.orders) })}</span>
+            </div>
+          ))
+        ) : (
+          <div className="db-empty">{t("admin.no_paid_orders_period")}</div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function DashboardSkeleton() {
   return (
     <div className="db">
@@ -287,6 +468,11 @@ function DashboardSkeleton() {
 function Dashboard() {
   const { t, i18n } = useTranslation();
   const [data, setData] = useState(null);
+  const [revenueData, setRevenueData] = useState(null);
+  const [revenueRange, setRevenueRange] = useState("30d");
+  const [revenueLoading, setRevenueLoading] = useState(true);
+  const [revenueError, setRevenueError] = useState("");
+  const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -311,6 +497,27 @@ function Dashboard() {
     fetchDashboard();
   }, [fetchDashboard]);
 
+  useEffect(() => {
+    let active = true;
+    setRevenueLoading(true);
+    setRevenueError("");
+    adminApi.getRevenueAnalytics(revenueRange)
+      .then(({ data: result }) => {
+        if (active) setRevenueData(result);
+      })
+      .catch((err) => {
+        if (active) {
+          setRevenueError(err.response?.data?.message || "Failed to load revenue analytics.");
+        }
+      })
+      .finally(() => {
+        if (active) setRevenueLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [revenueRange, analyticsRefreshKey]);
+
   const statCards = useMemo(() => {
     const s = data?.stats || {};
     return [
@@ -321,7 +528,6 @@ function Dashboard() {
       { label: t("admin.pending_payment"), value: money(s.pendingRevenue), icon: "clock", color: "#dc2626", bg: "#fee2e2" },
       { label: t("admin.total_users"), value: num(s.totalUsers), icon: "users", color: "#7c3aed", bg: "#ede9fe" },
       { label: t("admin.total_products"), value: num(s.totalProducts), icon: "products", color: "#db2777", bg: "#fce7f3" },
-      { label: t("admin.admins"), value: num(s.totalAdmins), icon: "shield", color: "#0d9488", bg: "#ccfbf1" },
     ];
   }, [data, t]);
 
@@ -373,7 +579,14 @@ function Dashboard() {
               ` · ${t("admin.updated", { time: updatedAt.toLocaleTimeString(dateLocales[i18n.language] || "en-GB", { hour: "2-digit", minute: "2-digit" }) })}`}
           </p>
         </div>
-        <button className="db-btn" onClick={() => fetchDashboard(true)} disabled={refreshing}>
+        <button
+          className="db-btn"
+          onClick={() => {
+            fetchDashboard(true);
+            setAnalyticsRefreshKey((key) => key + 1);
+          }}
+          disabled={refreshing}
+        >
           <span className={refreshing ? "db-spin" : ""} style={{ display: "inline-flex" }}>
             <Icon d={ICONS.refresh} size={16} />
           </span>
@@ -394,6 +607,17 @@ function Dashboard() {
           <KpiCard key={c.label} {...c} />
         ))}
       </div>
+
+      <RevenueAnalytics
+        data={revenueData}
+        loading={revenueLoading}
+        error={revenueError}
+        range={revenueRange}
+        onRangeChange={setRevenueRange}
+        locale={dateLocales[i18n.language] || "en-GB"}
+      />
+
+      <AIAnalyticsWidget />
 
       {/* Status breakdown + quick actions */}
       <div className="db-row">

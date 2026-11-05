@@ -4,6 +4,7 @@
 // (Orders, Products, Users, AddProduct).
 import React, { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { useToast } from "../../components/ToastNotifications";
 
 /* ------------------------------ Styles ------------------------------ */
 
@@ -142,13 +143,6 @@ textarea.ad-input { resize:vertical; min-height:92px; line-height:1.5; }
   background:linear-gradient(135deg,#f0f9ff,#eef2ff); border:1px solid #c7d2fe; border-radius:12px; }
 .ad-ai p { margin:.15rem 0 0; color:var(--muted); font-size:.82rem; }
 .ad-ai b { font-size:.9rem; }
-
-.ad-toasts { position:fixed; right:1.25rem; bottom:1.25rem; display:grid; gap:.6rem; z-index:1100; max-width:min(380px, calc(100vw - 2.5rem)); }
-.ad-toast { display:flex; align-items:flex-start; gap:.7rem; background:#fff; border:1px solid var(--line); border-left-width:4px; border-radius:12px;
-  padding:.8rem 1rem; box-shadow:0 10px 25px rgba(15,23,42,.12); font-size:.875rem; font-weight:500; animation: ad-pop .15s ease-out; }
-.ad-toast.success { border-left-color:#059669; } .ad-toast.success svg { color:#059669; }
-.ad-toast.error { border-left-color:#dc2626; } .ad-toast.error svg { color:#dc2626; }
-.ad-toast svg { flex-shrink:0; margin-top:1px; }
 
 @media (max-width:900px) { .ad-form-grid { grid-template-columns:1fr; } .ad-sticky { position:static; } }
 @media (max-width:560px) { .ad-grid2, .ad-grid3, .ad-mini-grid { grid-template-columns:1fr; } .ad-title { font-size:1.4rem; } .ad-kv { grid-template-columns:1fr; } }
@@ -344,14 +338,10 @@ export function ErrorBanner({ message, onRetry }) {
  */
 export function useFeedback() {
   const { t } = useTranslation();
-  const [toasts, setToasts] = useState([]);
+  const notify = useToast();
   const [dialog, setDialog] = useState(null);
 
-  const toast = useCallback((type, text, ms = 4000) => {
-    const id = `${Date.now()}-${Math.random()}`;
-    setToasts((t) => [...t, { id, type, text }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), ms);
-  }, []);
+  const toast = useCallback((type, text, ms) => notify(type, text, ms), [notify]);
 
   const confirm = useCallback(
     (opts) => new Promise((resolve) => setDialog({ ...opts, resolve })),
@@ -365,14 +355,6 @@ export function useFeedback() {
 
   const ui = (
     <>
-      <div className="ad-toasts" aria-live="polite">
-        {toasts.map((t) => (
-          <div key={t.id} className={`ad-toast ${t.type}`} role={t.type === "error" ? "alert" : "status"}>
-            <Icon name={t.type === "error" ? "alert" : "check"} size={18} />
-            <span>{t.text}</span>
-          </div>
-        ))}
-      </div>
       {dialog && (
         <Modal
           title={dialog.title || t("admin.are_you_sure")}

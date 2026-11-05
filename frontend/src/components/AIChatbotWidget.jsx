@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import API from "../api/axios";
-import "../styles/Chatbot.css"; // Ensure this file exists, or remove this line if not needed
+import "../styles/Chatbot.css";
 
 /* ------------------------------------------------------------------ */
 /* Configuration                                                       */
@@ -24,6 +25,22 @@ const QUICK_REPLIES = [
 ];
 
 const ERROR_TEXT = "I couldn't reach the server. Check your connection and try again.";
+const LANGUAGE_REQUEST = /\b(?:answer|reply|respond|speak|write)\b.{0,30}\b(english|amharic|oromo|tigrinya)\b|\b(?:in|use)\s+(english|amharic|oromo|tigrinya)\b/i;
+
+const getRequestedLanguage = (history, latestText) => {
+  const messagesToCheck = [...history, { role: "user", content: latestText }]
+    .filter((message) => message.role === "user")
+    .reverse();
+  const request = messagesToCheck.find((message) => LANGUAGE_REQUEST.test(message.content));
+  if (request) {
+    const language = request.content.match(/\b(english|amharic|oromo|tigrinya)\b/i)?.[1]?.toLowerCase();
+    return { english: "en", amharic: "am", oromo: "om", tigrinya: "ti" }[language] || null;
+  }
+  if (/afaan oromoo|afaan oromiffa/i.test(latestText)) return "om";
+  if (/ትግርኛ|ብትግርኛ/.test(latestText)) return "ti";
+  if (/[ሀ-ፚ]/.test(latestText)) return "am";
+  return null;
+};
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -46,7 +63,7 @@ const loadHistory = () => {
 /* ------------------------------------------------------------------ */
 /* Sub-components                                                      */
 /* ------------------------------------------------------------------ */
-const Message = React.memo(function Message({ message, onRetry }) {
+const Message = React.memo(function Message({ message, onRetry, addToCart, user }) {
   const isUser = message.role === "user";
   return (
     <div
@@ -55,6 +72,25 @@ const Message = React.memo(function Message({ message, onRetry }) {
       }`}
     >
       <span className="chatbot__text">{message.content}</span>
+      {message.recommendations?.length > 0 && (
+        <div className="chatbot__recommendations">
+          {message.recommendations.map((product) => (
+            <article key={product._id} className="chatbot__product">
+              <img src={product.image || "https://placehold.co/72x72?text=Product"} alt="" />
+              <div className="chatbot__product-info">
+                <strong>{product.name}</strong>
+                <span>{Number(product.price * (1 - (Number(product.discount) || 0) / 100)).toLocaleString()} ETB</span>
+                <Link to={`/product/${product._id}`}>View product</Link>
+              </div>
+              {user && addToCart && product.stock > 0 && (
+                <button type="button" className="chatbot__add" onClick={() => addToCart(product)}>
+                  Add
+                </button>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
       {message.isError && onRetry && (
         <button type="button" className="chatbot__retry" onClick={onRetry}>
           Try again
@@ -79,7 +115,7 @@ function TypingIndicator() {
 /* ------------------------------------------------------------------ */
 /* Main component                                                      */
 /* ------------------------------------------------------------------ */
-function Chatbot() {
+function AIChatbotWidget({ addToCart, user }) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState(loadHistory);
   const [input, setInput] = useState("");
@@ -141,9 +177,6 @@ function Chatbot() {
         .slice(-CONTEXT_WINDOW)
         .map(({ role, content }) => ({ role, content }));
 
-      // ✅ DEBUG LOG: Check browser console (F12) to see exactly what is sent
-      console.log("📤 Chatbot sending payload:", { messages: context });
-
       setMessages((prev) => [
         ...prev.filter((m) => !m.isError),
         userMessage,
@@ -158,7 +191,10 @@ function Chatbot() {
       try {
         const { data } = await API.post(
           "/ai/chat",
-          { messages: context },
+          {
+            messages: context,
+            language: getRequestedLanguage(messages, text),
+          },
           { signal: controller.signal, timeout: REQUEST_TIMEOUT_MS }
         );
 
@@ -168,22 +204,29 @@ function Chatbot() {
             id: createId(),
             role: "assistant",
             content: data?.reply || "Sorry, I didn't get a response. Please try again.",
+            recommendations: Array.isArray(data?.recommendations) ? data.recommendations : [],
           },
         ]);
       } catch (error) {
         if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError") return;
-        console.error("❌ Chatbot error:", error?.response?.data || error);
-
         const rateLimited = error?.response?.status === 429;
+        const unavailable = error?.response?.status === 503;
+        if (unavailable) {
+          console.warn("Chatbot service is temporarily unavailable:", error?.response?.data);
+        } else {
+          console.error("❌ Chatbot error:", error?.response?.data || error);
+        }
         setMessages((prev) => [
           ...prev,
           {
             id: createId(),
             role: "assistant",
-            isError: true,
-            content: rateLimited
-              ? "You're sending messages too quickly. Please wait a moment."
-              : ERROR_TEXT,
+            isError: !unavailable,
+            content: unavailable
+              ? error.response?.data?.reply || "Live chat is temporarily unavailable. You can still browse products or try again shortly."
+              : rateLimited
+                ? "You're sending messages too quickly. Please wait a moment."
+                : ERROR_TEXT,
           },
         ]);
       } finally {
@@ -281,6 +324,8 @@ function Chatbot() {
                 key={msg.id || i}
                 message={msg}
                 onRetry={msg.isError && i === lastIndex ? handleRetry : undefined}
+                addToCart={addToCart}
+                user={user}
               />
             ))}
 
@@ -335,4 +380,4 @@ function Chatbot() {
   );
 }
 
-export default Chatbot;
+export default AIChatbotWidget;

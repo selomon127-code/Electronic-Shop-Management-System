@@ -1,0 +1,87 @@
+.admin-mobile-bar {
+  display: none;
+}
+
+.admin-sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .admin-shell {
+    display: block !important;
+  }
+
+  .admin-sidebar {
+    width: min(280px, 86vw) !important;
+    transform: translateX(-105%);
+    transition: transform .25s ease;
+    z-index: 1100 !important;
+  }
+
+  .admin-sidebar.mobile-open {
+    width: min(280px, 86vw) !important;
+    transform: translateX(0);
+  }
+
+  .admin-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1090;
+    border: 0;
+    padding: 0;
+    background: rgba(15, 23, 42, .55);
+  }
+
+  .admin-main {
+    width: 100% !important;
+    min-width: 0;
+    margin-left: 0 !important;
+    padding: 1rem !important;
+  }
+
+  .admin-mobile-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 48px;
+    margin: -.25rem 0 1rem;
+  }
+
+  .admin-menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: .55rem;
+    min-height: 44px;
+    padding: .55rem .85rem;
+    border: 1px solid #dbe2ea;
+    border-radius: 10px;
+    background: #fff;
+    color: #1e293b;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .admin-sidebar[aria-hidden="true"] {
+    visibility: hidden;
+  }
+
+  .admin-sidebar.mobile-open {
+    visibility: visible;
+  }
+
+  .admin-sidebar h2 {
+    font-size: 1.05rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-main {
+    padding: .75rem !important;
+  }
+
+  .admin-mobile-bar {
+    margin-bottom: .75rem;
+  }
+}

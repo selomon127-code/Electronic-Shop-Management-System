@@ -1,4 +1,7 @@
 require("dotenv").config();
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET must be configured before starting the backend.");
+}
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -18,7 +21,10 @@ const adminRoutes = require("./routes/admin");
 const wishlistRoutes = require("./routes/wishlist");
 const reviewRoutes = require("./routes/reviews");
 const aiRoutes = require("./routes/ai");
+const aiCustomerRoutes = require("./routes/aiCustomer");
 const aiChatRoutes = require("./routes/aiChat");
+const healthRoutes = require("./routes/health");
+const couponRoutes = require("./routes/coupons");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -50,7 +56,7 @@ app.use(
 // ✅ 2. Session (Required for Passport Google OAuth)
 app.use(
   session({
-    secret: process.env.JWT_SECRET || "google-auth-secret-fallback",
+    secret: process.env.JWT_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -72,17 +78,20 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.get("/", (req, res) => res.json({ message: "API running 🚀" }));
 
 // ✅ 5. ROUTES (Fixed AI routing order!)
+app.use("/health", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/coupons", couponRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/reviews", reviewRoutes);
 
 // ✅ AI Routes (Both mounted at /api/ai)
-app.use("/api/ai", aiChatRoutes); // Handles POST /api/ai/chat
+app.use("/api/ai", aiCustomerRoutes);
+app.use("/api/ai", aiChatRoutes);
 app.use("/api/ai", aiRoutes); // Handles POST /api/ai/generate-product-description
 
 // Connect to MongoDB

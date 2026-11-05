@@ -36,7 +36,11 @@ const INITIAL_FORM = {
   descriptionOm: "",
   descriptionTi: "",
   price: "",
+  costPrice: "",
+  discount: "0",
   category: "",
+  brand: "",
+  tags: "",
   stock: "",
 };
 
@@ -157,6 +161,13 @@ function AddProduct() {
   // ---------- submit ----------
   const validate = () => {
     if (Number(formData.price) <= 0) return t("admin.price_positive");
+    if (formData.costPrice !== "" && (!Number.isFinite(Number(formData.costPrice)) || Number(formData.costPrice) < 0)) {
+      return t("admin.cost_price_invalid", { defaultValue: "Cost price must be zero or greater." });
+    }
+    const discount = Number(formData.discount);
+    if (!Number.isInteger(discount) || discount < 0 || discount > 100) {
+      return t("admin.discount_range", { defaultValue: "Discount must be a whole number from 0 to 100." });
+    }
     if (!Number.isInteger(Number(formData.stock)) || Number(formData.stock) < 0) {
       return t("admin.stock_whole_number");
     }
@@ -183,7 +194,11 @@ function AddProduct() {
         descriptionOm: formData.descriptionOm.trim(),
         descriptionTi: formData.descriptionTi.trim(),
         category: formData.category,
+        brand: formData.brand.trim(),
+        tags: formData.tags.split(",").map((tag) => tag.trim()).filter(Boolean).slice(0, 20),
         price: Number(formData.price),
+        costPrice: formData.costPrice === "" ? null : Number(formData.costPrice),
+        discount: Number(formData.discount),
         stock: Number(formData.stock),
         image: imageBase64,
       };
@@ -243,6 +258,36 @@ function AddProduct() {
                   <input id="stock" className="ad-input" type="number" name="stock" required min="0" step="1"
                     value={formData.stock} onChange={handleChange} placeholder={t("admin.stock_example")} />
                 </div>
+              </div>
+
+              <div className="ad-grid3" style={{ marginTop: "1rem", marginBottom: 0 }}>
+                <div className="ad-field" style={{ marginBottom: 0 }}>
+                  <label htmlFor="brand" className="ad-label">{t("admin.brand", { defaultValue: "Brand" })}</label>
+                  <input id="brand" className="ad-input" type="text" name="brand" maxLength={80}
+                    value={formData.brand} onChange={handleChange} />
+                </div>
+                <div className="ad-field" style={{ gridColumn: "span 2", marginBottom: 0 }}>
+                  <label htmlFor="tags" className="ad-label">{t("admin.search_tags", { defaultValue: "Search tags (comma-separated)" })}</label>
+                  <input id="tags" className="ad-input" type="text" name="tags" maxLength={800}
+                    value={formData.tags} onChange={handleChange} placeholder="programming, lightweight, USB-C" />
+                </div>
+              </div>
+
+              <div className="ad-field" style={{ maxWidth: 260, marginTop: "1rem", marginBottom: 0 }}>
+                <label htmlFor="costPrice" className="ad-label">
+                  {t("admin.cost_price", { defaultValue: "Cost price (ETB)" })}
+                </label>
+                <input id="costPrice" className="ad-input" type="number" name="costPrice" min="0" step="0.01"
+                  value={formData.costPrice} onChange={handleChange} placeholder="0.00" />
+                <small className="ad-muted">
+                  {t("admin.cost_price_help", { defaultValue: "Used for profit and inventory reports." })}
+                </small>
+              </div>
+
+              <div className="ad-field" style={{ maxWidth: 220, marginTop: "1rem", marginBottom: 0 }}>
+                <label htmlFor="discount" className="ad-label">{t("admin.discount_percent", { defaultValue: "Discount (%)" })}</label>
+                <input id="discount" className="ad-input" type="number" name="discount" min="0" max="100" step="1"
+                  value={formData.discount} onChange={handleChange} />
               </div>
             </div>
 

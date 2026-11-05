@@ -34,7 +34,7 @@ router.get("/:id", async (req, res) => {
 // ✅ CREATE product (admin only)
 router.post("/", auth, upload.single("imageFile"), async (req, res) => {
   try {
-    const { name, price, category, description, stock } = req.body;
+    const { name, price, discount, category, description, stock } = req.body;
     let imageUrl = "https://placehold.co/300x300/e2e8f0/64748b?text=No+Image";
 
     if (req.file) {
@@ -54,6 +54,7 @@ router.post("/", auth, upload.single("imageFile"), async (req, res) => {
     const product = new Product({
       name,
       price,
+      discount: discount === undefined ? 0 : Number(discount),
       category,
       description,
       image: imageUrl,
@@ -64,6 +65,9 @@ router.post("/", auth, upload.single("imageFile"), async (req, res) => {
     res.status(201).json(savedProduct);
   } catch (err) {
     console.error("❌ Create product error:", err);
+    if (err.name === "ValidationError") {
+      return res.status(400).json({ message: err.message });
+    }
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
@@ -71,10 +75,11 @@ router.post("/", auth, upload.single("imageFile"), async (req, res) => {
 // ✅ UPDATE product (admin only)
 router.put("/:id", auth, upload.single("imageFile"), async (req, res) => {
   try {
-    const { name, price, category, description, stock } = req.body;
+    const { name, price, discount, category, description, stock } = req.body;
     const updateData = {
       name,
       price,
+      ...(discount !== undefined && { discount: Number(discount) }),
       category,
       description,
       stock: stock || 0,
@@ -103,6 +108,9 @@ router.put("/:id", auth, upload.single("imageFile"), async (req, res) => {
     res.json(updated);
   } catch (err) {
     console.error("❌ Update product error:", err);
+    if (err.name === "ValidationError") {
+      return res.status(400).json({ message: err.message });
+    }
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });

@@ -1,13 +1,18 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { getDiscountedPrice } from "../utils/productPricing";
+import { useToast } from "../components/ToastNotifications";
+import RecommendationShelf from "../components/RecommendationShelf";
+import CouponPromotions from "../components/CouponPromotions";
 
 const FREE_SHIPPING_THRESHOLD = 5000;
 const SHIPPING_FEE = 150;
 
-function Cart({ cart, removeFromCart, updateQuantity }) {
+function Cart({ cart, removeFromCart, updateQuantity, addToCart, user }) {
   const navigate = useNavigate();
   const { t } = useTranslation(); // ✅ Initialize translation
+  const toast = useToast();
   
   const [updating, setUpdating] = useState(null);
   const [confirmId, setConfirmId] = useState(null);
@@ -16,7 +21,10 @@ function Cart({ cart, removeFromCart, updateQuantity }) {
   const items = cart || [];
   const getId = (item) => item._id || item.id;
   
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = items.reduce(
+    (sum, item) => sum + getDiscountedPrice(item) * item.quantity,
+    0,
+  );
   const shipping = subtotal > FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
   const total = subtotal + shipping;
   const totalUnits = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -40,6 +48,7 @@ function Cart({ cart, removeFromCart, updateQuantity }) {
     setTimeout(async () => {
       try {
         await removeFromCart(id);
+        toast("success", t("cart.item_removed"));
       } finally {
         setRemovingId(null);
       }
@@ -50,6 +59,7 @@ function Cart({ cart, removeFromCart, updateQuantity }) {
     return (
       <div className="ct">
         <style>{css}</style>
+        <div className="ct-promo"><CouponPromotions compact /></div>
         <div className="ct-empty">
           <div className="ct-empty-icon">🛒</div>
           <h2>{t("cart.empty_title") || "Your cart is empty"}</h2>
@@ -57,6 +67,9 @@ function Cart({ cart, removeFromCart, updateQuantity }) {
           <Link to="/products" className="ct-btn ct-btn-primary">
             🛍️ {t("cart.continue_shopping")}
           </Link>
+        </div>
+        <div style={{ padding: "0 1.5rem 2rem" }}>
+          <RecommendationShelf addToCart={addToCart} user={user} />
         </div>
       </div>
     );
@@ -66,6 +79,7 @@ function Cart({ cart, removeFromCart, updateQuantity }) {
     <div className="ct">
       <style>{css}</style>
 
+      <div className="ct-promo"><CouponPromotions compact subtotal={subtotal} /></div>
       <header className="ct-hero">
         <div className="ct-blob b1" />
         <div className="ct-blob b2" />
@@ -110,11 +124,23 @@ function Cart({ cart, removeFromCart, updateQuantity }) {
                       <div>
                         <h3>{item.name}</h3>
                         {item.category && <span className="ct-tag">{item.category}</span>}
-                        <div className="ct-unit">{Number(item.price).toLocaleString()} ETB {t("cart.each") || "each"}</div>
+                        <div className="ct-unit">
+                          {getDiscountedPrice(item).toLocaleString()} ETB {t("cart.each") || "each"}
+                          {Number(item.discount) > 0 && (
+                            <>
+                              {" "}
+                              <span style={{ textDecoration: "line-through", color: "#64748b" }}>
+                                {Number(item.price).toLocaleString()}
+                              </span>
+                              {" "}
+                              <span style={{ color: "#dc2626" }}>-{item.discount}%</span>
+                            </>
+                          )}
+                        </div>
                       </div>
 
                       <div className="ct-line-total">
-                        {(item.price * item.quantity).toLocaleString()} <small>ETB</small>
+                        {(getDiscountedPrice(item) * item.quantity).toLocaleString()} <small>ETB</small>
                       </div>
                     </div>
 
@@ -240,6 +266,13 @@ function Cart({ cart, removeFromCart, updateQuantity }) {
           </div>
         </aside>
       </div>
+      <div style={{ padding: "0 1.5rem 2rem" }}>
+        <RecommendationShelf
+          productIds={items.map((item) => getId(item))}
+          addToCart={addToCart}
+          user={user}
+        />
+      </div>
     </div>
   );
 }
@@ -247,6 +280,7 @@ function Cart({ cart, removeFromCart, updateQuantity }) {
 const css = `
 .ct { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; background: #f8fafc; min-height: 100vh; color: #0f172a; }
 .ct * { box-sizing: border-box; }
+.ct-promo { max-width: 1250px; margin: 1rem auto; padding: 0 1.5rem; }
 @keyframes ctUp { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
 .ct-hero { position: relative; overflow: hidden; background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #312e81 100%); color: #fff; padding: 2.8rem 1.5rem 4.2rem; text-align: center; border-radius: 0 0 36px 36px; }
 .ct-blob { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .5; animation: ctBlob 12s ease-in-out infinite alternate; }
@@ -340,6 +374,7 @@ const css = `
   .ct-side { position: static; }
 }
 @media (max-width: 560px) {
+  .ct-promo { padding: 0 1rem; }
   .ct-container { padding: 0 1rem 3rem; }
   .ct-item { flex-direction: column; }
   .ct-img { width: 100%; height: 190px; }

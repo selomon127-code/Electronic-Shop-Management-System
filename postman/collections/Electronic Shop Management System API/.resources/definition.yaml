@@ -1,0 +1,6 @@
+$kind: collection
+description: Smoke and API contract tests for the Express backend. Run requests in order against a dedicated test database. Registration creates a new user on each run.
+variables:
+  testPassword: PostmanTest123!
+auth:
+  type: noauth

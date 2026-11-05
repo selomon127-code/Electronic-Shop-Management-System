@@ -7,12 +7,15 @@ import {
   money, num, formatDate, useDebounced, useFeedback,
 } from "./adminUi";
 
-const EMPTY_USER = { name: "", email: "", password: "", phone: "", role: "user" };
+const EMPTY_USER = { name: "", email: "", password: "", phone: "", role: "customer" };
 
 const ROLE_STYLE = {
-  admin: { bg: "#fef3c7", fg: "#92400e" },
-  user: { bg: "#dbeafe", fg: "#1e40af" },
+  customer: { bg: "#dbeafe", fg: "#1e40af" },
+  business_owner: { bg: "#dcfce7", fg: "#166534" },
+  system_admin: { bg: "#fef3c7", fg: "#92400e" },
 };
+
+const ROLE_OPTIONS = ["customer", "business_owner", "system_admin"];
 
 function UserAvatar({ user, large }) {
   const cls = `ad-avatar${large ? " lg" : ""}`;
@@ -22,6 +25,7 @@ function UserAvatar({ user, large }) {
 
 function Users() {
   const { t } = useTranslation();
+  const roleLabel = (role) => t(`admin.${role}_role`);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -66,7 +70,7 @@ function Users() {
   const handleRoleChange = async (user, newRole) => {
     const ok = await confirm({
       title: t("admin.change_user_role_title"),
-      message: t("admin.change_user_role_message", { name: user.name, role: t(newRole === "admin" ? "admin.admin_access_role" : "admin.regular_user") }),
+      message: t("admin.change_user_role_message", { name: user.name, role: roleLabel(newRole) }),
       confirmLabel: t("admin.change_role"),
     });
     if (!ok) return;
@@ -74,7 +78,7 @@ function Users() {
     try {
       await adminApi.updateUserRole(user._id, newRole);
       setUsers((prev) => prev.map((u) => (u._id === user._id ? { ...u, role: newRole } : u)));
-      toast("success", t("admin.user_role_changed", { name: user.name, role: t(newRole === "admin" ? "admin.admin_role" : "admin.user_role") }));
+      toast("success", t("admin.user_role_changed", { name: user.name, role: roleLabel(newRole) }));
     } catch (err) {
       toast("error", err.response?.data?.message || err.message || t("admin.failed_change_role"));
     }
@@ -132,8 +136,9 @@ function Users() {
     }
   };
 
-  const admins = users.filter((u) => u.role === "admin").length;
-  const regular = users.filter((u) => u.role === "user").length;
+  const customers = users.filter((u) => u.role === "customer").length;
+  const businessOwners = users.filter((u) => u.role === "business_owner").length;
+  const systemAdmins = users.filter((u) => u.role === "system_admin").length;
 
   return (
     <div className="ad">
@@ -151,8 +156,9 @@ function Users() {
 
       <div className="ad-kpis">
         <Kpi label={t("admin.users_in_view")} value={num(users.length)} icon="users" color="#4f46e5" bg="#e0e7ff" />
-        <Kpi label={t("admin.regular_users")} value={num(regular)} icon="users" color="#2563eb" bg="#dbeafe" />
-        <Kpi label={t("admin.admins")} value={num(admins)} icon="shield" color="#d97706" bg="#fef3c7" />
+        <Kpi label={t("admin.customer_role")} value={num(customers)} icon="users" color="#2563eb" bg="#dbeafe" />
+        <Kpi label={t("admin.business_owners")} value={num(businessOwners)} icon="store" color="#15803d" bg="#dcfce7" />
+        <Kpi label={t("admin.system_admins")} value={num(systemAdmins)} icon="shield" color="#d97706" bg="#fef3c7" />
       </div>
 
       {/* Filters */}
@@ -175,8 +181,9 @@ function Users() {
           aria-label={t("admin.filter_role")}
         >
           <option value="">{t("admin.all_roles")}</option>
-          <option value="user">{t("admin.users_only")}</option>
-          <option value="admin">{t("admin.admins_only")}</option>
+          <option value="customer">{t("admin.customer_role")}</option>
+          <option value="business_owner">{t("admin.business_owners")}</option>
+          <option value="system_admin">{t("admin.system_admins")}</option>
         </select>
       </div>
 
@@ -203,7 +210,7 @@ function Users() {
               </thead>
               <tbody>
                 {users.map((user) => {
-                  const rs = ROLE_STYLE[user.role] || ROLE_STYLE.user;
+                  const rs = ROLE_STYLE[user.role] || ROLE_STYLE.customer;
                   const google = user.authProvider === "google";
                   return (
                     <tr key={user._id}>
@@ -225,8 +232,9 @@ function Users() {
                           aria-label={t("admin.role_for_user", { name: user.name })}
                           style={{ background: rs.bg, color: rs.fg }}
                         >
-                          <option value="user">{t("admin.user_role")}</option>
-                          <option value="admin">{t("admin.admin_role")}</option>
+                          {ROLE_OPTIONS.map((role) => (
+                            <option key={role} value={role}>{roleLabel(role)}</option>
+                          ))}
                         </select>
                       </td>
                       <td>
@@ -311,8 +319,9 @@ function Users() {
               <label className="ad-label" htmlFor="nu-role">{t("admin.role")} *</label>
               <select id="nu-role" className="ad-input" value={newUser.role}
                 onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}>
-                <option value="user">{t("admin.user_regular_customer")}</option>
-                <option value="admin">{t("admin.admin_panel_access")}</option>
+                {ROLE_OPTIONS.map((role) => (
+                  <option key={role} value={role}>{roleLabel(role)}</option>
+                ))}
               </select>
             </div>
           </form>
@@ -334,8 +343,8 @@ function Users() {
               <span
                 className="ad-badge"
                 style={{
-                  background: (ROLE_STYLE[userDetails.user.role] || ROLE_STYLE.user).bg,
-                  color: (ROLE_STYLE[userDetails.user.role] || ROLE_STYLE.user).fg,
+                  background: (ROLE_STYLE[userDetails.user.role] || ROLE_STYLE.customer).bg,
+                  color: (ROLE_STYLE[userDetails.user.role] || ROLE_STYLE.customer).fg,
                   textTransform: "capitalize",
                 }}
               >

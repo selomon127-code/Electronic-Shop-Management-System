@@ -1,0 +1,21 @@
+$kind: http-request
+url: "{{baseUrl}}/api/auth/login"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "email": "{{testEmail}}",
+      "password": "{{testPassword}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('logs in successfully', function () { pm.response.to.have.status(200); });
+      const body = pm.response.json();
+      pm.test('returns a bearer token', function () { pm.expect(body.token).to.be.a('string').and.not.empty; });
+      if (body.token) pm.environment.set('userToken', body.token);
+    language: text/javascript
+order: 2000

@@ -47,6 +47,8 @@ function OrderConfirmation() {
     );
   }
 
+  const paymentConfirmed = order?.paymentStatus === "paid";
+
   return (
     <div style={{ maxWidth: "800px", margin: "0 auto", padding: "4rem 2rem", textAlign: "center" }}>
       {/* Success Icon */}
@@ -60,14 +62,19 @@ function OrderConfirmation() {
       </div>
 
       <h1 style={{ fontSize: "2.5rem", color: "#1e293b", marginBottom: "1rem" }}>
-        {order?.paymentMethod === 'cod' ? t("orders.placed_success") : t("orders.payment_success")}
+        {order?.paymentMethod === "cod"
+          ? t("orders.placed_success")
+          : paymentConfirmed
+            ? t("orders.payment_success")
+            : t("orders.verify")}
       </h1>
       
       <p style={{ fontSize: "1.1rem", color: "#64748b", marginBottom: "2rem" }}>
-        {t("orders.thanks")}{" "}
-        {order?.paymentMethod === 'cod' 
-          ? t("orders.cod_instructions")
-          : t("orders.payment_verified")}
+        {order?.paymentMethod === "cod"
+          ? `${t("orders.thanks")} ${t("orders.cod_instructions")}`
+          : paymentConfirmed
+            ? `${t("orders.thanks")} ${t("orders.payment_verified")}`
+            : t("orders.verify")}
       </p>
 
       {/* Order Details Box */}

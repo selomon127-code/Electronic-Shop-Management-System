@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{baseUrl}}/api/products/{{productId}}"
+method: GET
+scripts:
+  - type: beforeRequest
+    code: if (!pm.environment.get('productId')) pm.execution.skipRequest();
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test('returns HTTP 200', function () { pm.response.to.have.status(200); });
+      pm.test('returns the requested product', function () { pm.expect(pm.response.json()._id).to.eql(pm.environment.get('productId')); });
+    language: text/javascript
+order: 2000
