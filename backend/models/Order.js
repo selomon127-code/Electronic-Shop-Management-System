@@ -63,6 +63,11 @@ const orderSchema = new mongoose.Schema(
     },
 
     chapaTxRef: { type: String },
+    paymentReference: { type: String },
+    paidAt: { type: Date },
+    paymentReceiptSent: { type: Boolean, default: false },
+    paymentReceiptSentAt: { type: Date },
+    tax: { type: Number, default: 0 },
   },
   { timestamps: true },
 );

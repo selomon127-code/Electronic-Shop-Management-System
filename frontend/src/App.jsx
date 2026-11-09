@@ -25,6 +25,7 @@ import LoginForm from "./pages/LoginForm";
 import Signup from "./pages/SignUp";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import Notifications from "./pages/admin/Notifications";
 
 // Public Pages
 import Home from "./pages/Home";
@@ -219,6 +220,7 @@ function App() {
             </>
           ) : <Navigate to="/login" replace />
         } />
+        <Route path="/notifications" element={<Notifications />} />
 
         <Route path="/payment" element={
           user ? (

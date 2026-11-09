@@ -9,6 +9,8 @@ const auth = require("../middleware/auth");
 const axios = require("axios");
 const { verifyPayment: verifyChapaPayment } = require("../utils/chapa");
 const { getDiscountedPrice } = require("../utils/productPricing");
+const notificationService = require("../services/notificationService");
+const { sendReviewRequestEmail } = require("../utils/sendEmail");
 const {
   claimCoupon,
   getCouponDiscount,
@@ -16,6 +18,13 @@ const {
   getShippingFee,
   releaseCoupon,
 } = require("../utils/couponPricing");
+const {
+  canAccessOrderReceipt,
+  streamOrderReceipt,
+} = require("../utils/orderReceipt");
+const {
+  handleVerifiedPaymentTransition,
+} = require("../services/paymentConfirmationService");
 
 // ✅ Import BOTH email functions
 const {
@@ -70,10 +79,12 @@ router.post("/", auth, async (req, res) => {
       const totalQuantity =
         (quantitiesByProduct.get(String(product._id)) || 0) + quantity;
       quantitiesByProduct.set(String(product._id), totalQuantity);
-      if (product.stock < totalQuantity)
+
+      if (product.stock < totalQuantity) {
         return res
           .status(400)
           .json({ message: `Not enough stock for ${product.name}` });
+      }
 
       const discountedPrice = getDiscountedPrice(
         product.price,
@@ -103,13 +114,16 @@ router.post("/", auth, async (req, res) => {
 
     if (couponCode) {
       coupon = await Coupon.findOne({ code: couponCode });
-      if (!coupon) {
+      if (!coupon)
         return res.status(400).json({ message: "Coupon code not found." });
-      }
-      const couponError = await getCouponStatusMessage(coupon, userId, subtotal, new Date(), {
-        categories,
-        productIds,
-      });
+
+      const couponError = await getCouponStatusMessage(
+        coupon,
+        userId,
+        subtotal,
+        new Date(),
+        { categories, productIds },
+      );
       if (couponError) return res.status(400).json({ message: couponError });
       couponDiscount = getCouponDiscount(coupon, subtotal);
     }
@@ -117,8 +131,8 @@ router.post("/", auth, async (req, res) => {
     const calculatedTotal = Number(
       Math.max(0, subtotal - couponDiscount + shippingFee).toFixed(2),
     );
-
     const isCOD = paymentMethod === "cod";
+
     const newOrder = new Order({
       user: userId,
       products: orderProducts,
@@ -135,14 +149,11 @@ router.post("/", auth, async (req, res) => {
     });
 
     if (coupon) {
-      claimedCoupon = await claimCoupon(
-        coupon,
-        userId,
-        newOrder._id,
-      );
+      claimedCoupon = await claimCoupon(coupon, userId, newOrder._id);
       if (!claimedCoupon) {
         return res.status(409).json({
-          message: "This coupon has just reached its usage limit. Remove it and try again.",
+          message:
+            "This coupon has just reached its usage limit. Remove it and try again.",
         });
       }
       claimedCouponUserId = userId;
@@ -153,14 +164,17 @@ router.post("/", auth, async (req, res) => {
       const product = await Product.findOneAndUpdate(
         { _id: productId, stock: { $gte: quantity } },
         { $inc: { stock: -quantity } },
-        { new: true },
+        { returnDocument: "after" },
       );
+
       if (!product) {
+        // Rollback stock
         await Promise.all(
-          decrementedStock.map(({ productId: restoredProductId, quantity: restoredQuantity }) =>
-            Product.findByIdAndUpdate(restoredProductId, {
-              $inc: { stock: restoredQuantity },
-            }),
+          decrementedStock.map(
+            ({ productId: restoredProductId, quantity: restoredQuantity }) =>
+              Product.findByIdAndUpdate(restoredProductId, {
+                $inc: { stock: restoredQuantity },
+              }),
           ),
         );
         decrementedStock.length = 0;
@@ -171,9 +185,11 @@ router.post("/", auth, async (req, res) => {
           claimedOrderId = null;
         }
         return res.status(400).json({
-          message: "Product stock changed during checkout. Please review your cart.",
+          message:
+            "Product stock changed during checkout. Please review your cart.",
         });
       }
+
       decrementedStock.push({
         productId,
         quantity,
@@ -208,6 +224,11 @@ router.post("/", auth, async (req, res) => {
 
     const savedOrder = await newOrder.save();
     orderPersisted = true;
+
+    // ✅ SEND NOTIFICATION TO ADMIN
+    await notificationService.newOrder(savedOrder).catch((err) => {
+      console.error("❌ Order notification failed:", err);
+    });
 
     if (isCOD) {
       const populatedOrder = await Order.findById(savedOrder._id).populate(
@@ -272,7 +293,10 @@ router.post("/", auth, async (req, res) => {
       try {
         await StockMovement.deleteMany({ order: stockMovementOrderId });
       } catch (cleanupError) {
-        console.error("❌ Failed to remove uncommitted stock movements:", cleanupError);
+        console.error(
+          "❌ Failed to remove uncommitted stock movements:",
+          cleanupError,
+        );
       }
     }
     if (!orderPersisted) {
@@ -306,6 +330,7 @@ router.get("/", auth, async (req, res) => {
   }
 });
 
+// ✅ 3. GET SINGLE ORDER (with auto-verification for Chapa)
 router.get("/:id", auth, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
@@ -324,9 +349,17 @@ router.get("/:id", auth, async (req, res) => {
         Number.isFinite(verifiedAmount) &&
         Math.round(verifiedAmount * 100) === Math.round(order.totalPrice * 100)
       ) {
-        order.paymentStatus = "paid";
-        order.status = "processing";
-        await order.save();
+        await handleVerifiedPaymentTransition(order._id, {
+          paymentMethod: order.paymentMethod || "chapa",
+          transactionReference: order.chapaTxRef,
+          actor: "customer_polling",
+        });
+        const refreshedOrder = await Order.findById(order._id);
+        if (refreshedOrder) {
+          order.paymentStatus = refreshedOrder.paymentStatus;
+          order.status = refreshedOrder.status;
+          order.paidAt = refreshedOrder.paidAt;
+        }
       }
     }
 
@@ -338,7 +371,43 @@ router.get("/:id", auth, async (req, res) => {
   }
 });
 
-// ✅ 3. CANCEL ORDER & RESTORE STOCK
+// ✅ 4. GET ORDER RECEIPT
+router.get("/:id/receipt", auth, async (req, res) => {
+  try {
+    if (!/^[a-fA-F0-9]{24}$/.test(req.params.id)) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    const actor = await User.findById(req.userId).select("role");
+    if (!actor)
+      return res
+        .status(401)
+        .json({ message: "Account is no longer available." });
+
+    if (
+      !canAccessOrderReceipt(order, {
+        ...(actor.toObject?.() || actor),
+        _id: req.userId,
+      })
+    ) {
+      return res.status(403).json({
+        message: "You do not have permission to access this receipt.",
+      });
+    }
+
+    await order.populate("user", "name email phone");
+    return streamOrderReceipt(order, res);
+  } catch (error) {
+    console.error("Receipt generation error:", error);
+    if (!res.headersSent) {
+      return res.status(500).json({ message: "Failed to generate receipt." });
+    }
+  }
+});
+
+// ✅ 5. CANCEL ORDER & RESTORE STOCK
 router.put("/:id/cancel", auth, async (req, res) => {
   try {
     const userId = req.user ? req.user.id : req.userId;
@@ -356,12 +425,13 @@ router.put("/:id/cancel", auth, async (req, res) => {
     order.status = "cancelled";
     order.paymentStatus = "cancelled";
     await order.save();
+
     for (const item of order.products) {
       if (item.product) {
         const product = await Product.findByIdAndUpdate(
           item.product._id,
           { $inc: { stock: item.quantity } },
-          { new: true },
+          { returnDocument: "after" },
         );
         if (product) {
           await StockMovement.create({
@@ -377,6 +447,7 @@ router.put("/:id/cancel", auth, async (req, res) => {
         }
       }
     }
+
     if (order.coupon?.couponId || order.coupon?.code) {
       const coupon = order.coupon.couponId
         ? await Coupon.findById(order.coupon.couponId)
@@ -390,6 +461,41 @@ router.put("/:id/cancel", auth, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
+// Inside your PUT /:id/status route:
+router.put("/:id/status", auth, async (req, res) => {
+  try {
+    const { status } = req.body;
+    // Populate user to get their email and name
+    const order = await Order.findById(req.params.id).populate(
+      "user",
+      "name email",
+    );
+
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    const oldStatus = order.status;
+    order.status = status;
+    await order.save();
+
+    // ✅ NEW: Trigger review request 3 days after delivery
+    if (oldStatus !== "delivered" && status === "delivered" && order.user) {
+      const THREE_DAYS_IN_MS = 3 * 24 * 60 * 60 * 1000;
+
+      setTimeout(() => {
+        sendReviewRequestEmail(order.user, order).catch((err) => {
+          console.error("❌ Review request failed:", err);
+        });
+      }, THREE_DAYS_IN_MS);
+
+      console.log(`⏰ [REVIEW] Scheduled for Order #${order._id} in 3 days.`);
+    }
+
+    res.json({ message: "Order status updated", order });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 

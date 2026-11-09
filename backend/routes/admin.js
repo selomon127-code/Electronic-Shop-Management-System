@@ -10,6 +10,7 @@ const StockMovement = require("../models/StockMovement");
 const auth = require("../middleware/auth");
 const { restrictTo } = require("../middleware/adminAuth");
 const { sendStatusUpdateEmail } = require("../utils/sendEmail");
+const { dispatchPaymentConfirmationEmail } = require("../services/paymentConfirmationService");
 const { releaseCoupon } = require("../utils/couponPricing");
 const aiAnalyticsController = require("../controllers/aiAnalyticsController");
 const { BulkCostUpdateError, bulkUpdateProductCosts } = require("../services/bulkProductCostService");
@@ -177,7 +178,7 @@ router.delete("/coupons/:id", async (req, res) => {
     const coupon = await Coupon.findByIdAndUpdate(
       req.params.id,
       { isActive: false },
-      { new: true },
+      { returnDocument: "after" },
     );
     if (!coupon) return res.status(404).json({ message: "Coupon not found." });
     return res.json({ message: "Coupon deactivated.", coupon });
@@ -477,7 +478,7 @@ router.post("/reports/supplier-purchases", async (req, res) => {
           stock: { $add: [{ $ifNull: ["$stock", 0] }, parsedQuantity] },
         },
       }],
-      { new: true },
+      { returnDocument: "after" },
     );
     if (!updatedProduct) {
       await SupplierPurchase.findByIdAndDelete(purchase._id);
@@ -791,13 +792,21 @@ router.put("/orders/:id/status", async (req, res) => {
       oldStatus !== "cancelled" &&
       ["pending", "pending_payment"].includes(oldStatus) &&
       order.paymentStatus !== "paid";
+    const wasPending = order.paymentStatus === "pending";
+    let paymentBecamePaid = false;
     order.status = status;
     if (
       status === "delivered" &&
       order.paymentMethod === "cod" &&
-      order.paymentStatus === "pending"
+      wasPending
     ) {
       order.paymentStatus = "paid";
+      order.paidAt = new Date();
+      paymentBecamePaid = true;
+    } else if (req.body.paymentStatus === "paid" && wasPending) {
+      order.paymentStatus = "paid";
+      order.paidAt = new Date();
+      paymentBecamePaid = true;
     }
     await order.save();
     if (shouldRestoreStock) {
@@ -806,7 +815,7 @@ router.put("/orders/:id/status", async (req, res) => {
         const product = await Product.findByIdAndUpdate(
           item.product,
           { $inc: { stock: item.quantity } },
-          { new: true },
+          { returnDocument: "after" },
         );
         if (product) {
           await StockMovement.create({
@@ -838,6 +847,14 @@ router.put("/orders/:id/status", async (req, res) => {
     if (order.user?.email && oldStatus !== status) {
       sendStatusUpdateEmail(order.user.email, order, status).catch((err) =>
         console.error("❌ Status email error:", err.message),
+      );
+    }
+
+    if (paymentBecamePaid) {
+      dispatchPaymentConfirmationEmail(order._id, {
+        actor: "admin_status_update",
+      }).catch((err) =>
+        console.error("❌ Admin post-payment confirmation email error:", err.message),
       );
     }
 

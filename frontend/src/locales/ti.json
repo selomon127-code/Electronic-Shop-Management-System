@@ -612,6 +612,9 @@
   "orders": {
     "history": "ታሪኽ ትእዛዝ",
     "cancel": "ትእዛዝ ሰርዝ",
+    "download_receipt": "ቅብሊት ኣውርድ",
+    "downloading_receipt": "እናወረደ ኣሎ...",
+    "receipt_failed": "ቅብሊት ምውራድ ኣይተኻእለን። በጃኹም ደጊምኩም ፈትኑ።",
     "cancel_confirm": "ነዚ ትእዛዝ ክትስርዞ ርግጸኛ ዲኻ?",
     "cancelled_success": "ትእዛዝ ብዓወት ተሰሪዙ!",
     "cancel_failed": "ትእዛዝ ምስራዝ ኣይተዓወተን",

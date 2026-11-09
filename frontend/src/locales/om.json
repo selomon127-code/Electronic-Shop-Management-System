@@ -612,6 +612,9 @@
   "orders": {
     "history": "Seenaa Ajajaa",
     "cancel": "Ajaja Haqi",
+    "download_receipt": "Nagahee Buusi",
+    "downloading_receipt": "Bu'aa jira...",
+    "receipt_failed": "Nagahee buusun hin milkoofne. Irra deebi'ii yaali.",
     "cancel_confirm": "Ajaja kana haquu kee mirkaneeffatteettaa?",
     "cancelled_success": "Ajajni milkiidhaan haqame!",
     "cancel_failed": "Ajaja haquun hin milkoofne",

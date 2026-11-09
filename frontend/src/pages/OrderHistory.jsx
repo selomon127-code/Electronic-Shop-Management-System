@@ -8,6 +8,8 @@ const OrderHistory = () => {
   const { t, i18n } = useTranslation();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [receiptError, setReceiptError] = useState("");
 
   useEffect(() => {
     fetchOrders();
@@ -22,6 +24,43 @@ const OrderHistory = () => {
       console.error("Failed to fetch orders:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const orderCode = (order) => order._id.toString().slice(-6).toUpperCase();
+
+  const handleDownloadReceipt = async (order) => {
+    setReceiptError("");
+    setDownloadingId(order._id);
+    try {
+      const response = await API.get(`/orders/${order._id}/receipt`, {
+        responseType: "blob",
+      });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Receipt_${orderCode(order)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      let message = t("orders.receipt_failed");
+      const data = error.response?.data;
+      if (data instanceof Blob) {
+        try {
+          const parsed = JSON.parse(await data.text());
+          if (parsed.message) message = parsed.message;
+        } catch {
+          message = t("orders.receipt_failed");
+        }
+      } else if (typeof data?.message === "string") {
+        message = data.message;
+      }
+      setReceiptError(message);
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -66,6 +105,12 @@ const OrderHistory = () => {
 
   return (
     <div style={{ maxWidth: "900px", margin: "0 auto", padding: "2rem" }}>
+      {receiptError && (
+        <div role="alert" style={{ marginBottom: "1rem", padding: "0.85rem 1rem", background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca", borderRadius: "8px", fontWeight: "600" }}>
+          {receiptError}
+        </div>
+      )}
+
       <h2 style={{ fontSize: "1.8rem", fontWeight: "700", color: "#1e293b", marginBottom: "2rem", display: "flex", alignItems: "center", gap: "0.75rem" }}>
         📦 {t("orders.history")} <span style={{ fontSize: "0.9rem", fontWeight: "500", color: "#64748b", background: "#e2e8f0", padding: "0.25rem 0.75rem", borderRadius: "999px" }}>{orders.length}</span>
       </h2>
@@ -76,7 +121,7 @@ const OrderHistory = () => {
           <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #e2e8f0", paddingBottom: "1rem", marginBottom: "1rem" }}>
             <div>
               <p style={{ fontSize: "0.85rem", color: "#64748b", margin: 0 }}>{t("admin.order_id")}</p>
-              <p style={{ fontFamily: "monospace", fontWeight: "700", color: "#1e293b", margin: "0.25rem 0 0 0" }}>#{order._id.toString().slice(-6).toUpperCase()}</p>
+              <p style={{ fontFamily: "monospace", fontWeight: "700", color: "#1e293b", margin: "0.25rem 0 0 0" }}>#{orderCode(order)}</p>
             </div>
             <div>
               <p style={{ fontSize: "0.85rem", color: "#64748b", margin: 0 }}>{t("orders.date")}</p>
@@ -117,19 +162,44 @@ const OrderHistory = () => {
           </div>
 
           {/* Actions */}
-          {(order.status === "pending" || order.paymentStatus === "pending") && (
-            <div style={{ marginTop: "1.5rem", paddingTop: "1rem", borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "flex-end" }}>
-              <button 
-                onClick={() => handleCancelOrder(order._id)}
-                style={{ padding: "0.6rem 1.2rem", background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: "8px", cursor: "pointer", fontWeight: "600", fontSize: "0.9rem", transition: "background 0.2s" }}
-                onMouseEnter={(e) => e.currentTarget.style.background = "#fee2e2"}
-                onMouseLeave={(e) => e.currentTarget.style.background = "#fef2f2"}
-              >
-                {t("orders.cancel")}
-              </button>
-            </div>
-          )
-          }
+          {(() => {
+            const isPending = order.status === "pending" || order.status === "pending_payment" || order.paymentStatus === "pending";
+            const isDownloading = downloadingId === order._id;
+            return (
+              <div style={{ marginTop: "1.5rem", paddingTop: "1rem", borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "flex-end", gap: "0.75rem", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadReceipt(order)}
+                  disabled={isDownloading}
+                  aria-busy={isDownloading}
+                  style={{
+                    padding: "0.6rem 1.2rem",
+                    background: isPending ? "white" : "#4f46e5",
+                    color: isPending ? "#4f46e5" : "white",
+                    border: isPending ? "1px solid #c7d2fe" : "none",
+                    borderRadius: "8px",
+                    cursor: isDownloading ? "wait" : "pointer",
+                    fontWeight: "600",
+                    fontSize: "0.9rem",
+                    opacity: isDownloading ? 0.7 : 1,
+                  }}
+                >
+                  {isDownloading ? t("orders.downloading_receipt") : t("orders.download_receipt")}
+                </button>
+                {isPending && (
+                  <button
+                    type="button"
+                    onClick={() => handleCancelOrder(order._id)}
+                    style={{ padding: "0.6rem 1.2rem", background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: "8px", cursor: "pointer", fontWeight: "600", fontSize: "0.9rem", transition: "background 0.2s" }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "#fee2e2"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "#fef2f2"}
+                  >
+                    {t("orders.cancel")}
+                  </button>
+                )}
+              </div>
+            );
+          })()}
         </div>
       ))}
     </div>

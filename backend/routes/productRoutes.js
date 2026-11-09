@@ -100,7 +100,7 @@ router.put("/:id", auth, upload.single("imageFile"), async (req, res) => {
     }
 
     const updated = await Product.findByIdAndUpdate(req.params.id, updateData, {
-      new: true,
+      returnDocument: "after",
       runValidators: true,
     });
 

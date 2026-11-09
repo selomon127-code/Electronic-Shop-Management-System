@@ -25,7 +25,9 @@ router.get("/", auth, systemAdmin, async (req, res) => {
 router.delete("/:id", auth, systemAdmin, async (req, res) => {
   try {
     if (req.params.id === req.userId) {
-      return res.status(400).json({ message: "Cannot delete your own account." });
+      return res
+        .status(400)
+        .json({ message: "Cannot delete your own account." });
     }
     const deleted = await User.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "User not found" });
@@ -48,7 +50,7 @@ router.put("/:id/role", auth, systemAdmin, async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { role },
-      { new: true },
+      { returnDocument: "after" },
     ).select("-password");
 
     if (!user) return res.status(404).json({ message: "User not found" });

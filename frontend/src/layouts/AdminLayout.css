@@ -85,3 +85,29 @@
     margin-bottom: .75rem;
   }
 }
+.admin-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.admin-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.admin-sidebar.mobile-open {
+  width: 260px !important;
+}
+
+@media (max-width: 900px) {
+  .admin-sidebar:not(.mobile-open) {
+    transform: translateX(-100%);
+  }
+}

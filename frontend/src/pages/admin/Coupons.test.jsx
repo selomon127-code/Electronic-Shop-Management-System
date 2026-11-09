@@ -12,6 +12,7 @@ vi.mock("../../api/adminApi", () => ({
   },
 }));
 
+
 describe("Admin coupon management", () => {
   beforeEach(() => {
     vi.clearAllMocks();

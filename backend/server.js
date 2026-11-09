@@ -25,6 +25,7 @@ const aiCustomerRoutes = require("./routes/aiCustomer");
 const aiChatRoutes = require("./routes/aiChat");
 const healthRoutes = require("./routes/health");
 const couponRoutes = require("./routes/coupons");
+const notificationRoutes = require("./routes/notifications");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -93,6 +94,7 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/ai", aiCustomerRoutes);
 app.use("/api/ai", aiChatRoutes);
 app.use("/api/ai", aiRoutes); // Handles POST /api/ai/generate-product-description
+app.use("/api/notifications", notificationRoutes);
 
 // Connect to MongoDB
 mongoose

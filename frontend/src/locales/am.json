@@ -612,6 +612,9 @@
   "orders": {
     "history": "የትዕዛዝ ታሪክ",
     "cancel": "ትዕዛዝ ሰርዝ",
+    "download_receipt": "ደረሰኝ አውርድ",
+    "downloading_receipt": "በማውረድ ላይ...",
+    "receipt_failed": "ደረሰኙን ማውረድ አልተሳካም። እባክዎ እንደገና ይሞክሩ።",
     "cancel_confirm": "ይህን ትዕዛዝ ለመሰረዝ እርግጠኛ ነዎት?",
     "cancelled_success": "ትዕዛዙ በተሳካ ሁኔታ ተሰርዟል!",
     "cancel_failed": "ትዕዛዙን መሰረዝ አልተሳካም",

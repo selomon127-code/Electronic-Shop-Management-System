@@ -636,6 +636,9 @@
   "orders": {
     "history": "Order History",
     "cancel": "Cancel Order",
+    "download_receipt": "Download Receipt",
+    "downloading_receipt": "Downloading...",
+    "receipt_failed": "Could not download the receipt. Please try again.",
     "cancel_confirm": "Are you sure you want to cancel this order?",
     "cancelled_success": "Order cancelled successfully!",
     "cancel_failed": "Failed to cancel order",

@@ -4,11 +4,19 @@ const {
   initializePayment: chapaInit,
   verifyPayment: chapaVerify,
 } = require("../utils/chapa");
-const {
-  initializePayment: telebirrInit,
-  verifyPayment: telebirrVerify,
-} = require("../utils/telebirr");
+
+let telebirrInit = async () => ({ success: false, message: "Telebirr integration not configured" });
+let telebirrVerify = async () => ({ success: false, message: "Telebirr integration not configured" });
+try {
+  const telebirr = require("../utils/telebirr");
+  telebirrInit = telebirr.initializePayment;
+  telebirrVerify = telebirr.verifyPayment;
+} catch (e) {
+  // Telebirr is optional
+}
+
 const { sendOrderConfirmation } = require("../utils/sendEmail");
+const { handleVerifiedPaymentTransition } = require("../services/paymentConfirmationService");
 
 /**
  * Create order with payment method
@@ -70,6 +78,7 @@ exports.createOrderWithPayment = async (req, res) => {
 
       if (paymentResult.success) {
         order.paymentReference = paymentResult.txRef;
+        order.chapaTxRef = paymentResult.txRef;
         await order.save();
       }
     }
@@ -131,13 +140,16 @@ exports.chapaCallback = async (req, res) => {
     const verification = await chapaVerify(tx_ref);
 
     if (verification.success && verification.status === "success") {
-      // Update order to paid
-      const order = await Order.findOne({ paymentReference: tx_ref });
+      // Locate order and transition atomically
+      const order = await Order.findOne({
+        $or: [{ paymentReference: tx_ref }, { chapaTxRef: tx_ref }],
+      });
       if (order) {
-        order.paymentStatus = "paid";
-        order.status = "processing"; // Auto-start processing for paid orders
-        await order.save();
-        console.log("✅ Order paid via Chapa:", order._id);
+        await handleVerifiedPaymentTransition(order._id, {
+          paymentMethod: "chapa",
+          transactionReference: tx_ref,
+          actor: "chapa_callback",
+        });
       }
     }
 
@@ -164,10 +176,11 @@ exports.telebirrCallback = async (req, res) => {
       // "1" = success in Telebirr
       const order = await Order.findOne({ paymentReference: merchantOrderNo });
       if (order) {
-        order.paymentStatus = "paid";
-        order.status = "processing";
-        await order.save();
-        console.log("✅ Order paid via Telebirr:", order._id);
+        await handleVerifiedPaymentTransition(order._id, {
+          paymentMethod: "telebirr",
+          transactionReference: merchantOrderNo,
+          actor: "telebirr_callback",
+        });
       }
     }
 
@@ -191,22 +204,30 @@ exports.checkPaymentStatus = async (req, res) => {
     }
 
     // For pending payments, verify with gateway
-    if (order.paymentStatus === "pending" && order.paymentReference) {
+    const txRef = order.paymentReference || order.chapaTxRef;
+    if (order.paymentStatus === "pending" && txRef) {
       let verification;
 
       if (order.paymentMethod === "chapa") {
-        verification = await chapaVerify(order.paymentReference);
+        verification = await chapaVerify(txRef);
       } else if (order.paymentMethod === "telebirr") {
-        verification = await telebirrVerify(order.paymentReference);
+        verification = await telebirrVerify(txRef);
       }
 
       if (
         verification?.success &&
         (verification.status === "success" || verification.status === "1")
       ) {
-        order.paymentStatus = "paid";
-        order.status = "processing";
-        await order.save();
+        await handleVerifiedPaymentTransition(order._id, {
+          paymentMethod: order.paymentMethod,
+          transactionReference: txRef,
+          actor: "check_payment_status",
+        });
+        const updated = await Order.findById(order._id);
+        if (updated) {
+          order.paymentStatus = updated.paymentStatus;
+          order.status = updated.status;
+        }
       }
     }
 
